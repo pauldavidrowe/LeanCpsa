@@ -1,0 +1,10 @@
+name = "cpsa2lean"
+version = "0.1.0"
+defaultTargets = ["Cpsa2Lean"]
+
+[leanOptions]
+pp.unicode.fun = true
+autoImplicit = false
+
+[[lean_lib]]
+name = "Cpsa2Lean"
