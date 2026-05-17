@@ -465,8 +465,8 @@ private def contractions (k : Preskel) (ct : CMT) (pos : Place) (eks : List Term
   let substs := solveCMTs escape anc (k.gen, emptySubst) ++
                 constSolve (k.gen, emptySubst) ct
   substs.flatMap fun gs =>
-    (contract k n cause gs).flatMap fun (k', _, phi, subst') =>
-      if maybeSolved ct pos eks escape k' n subst' k.kabsent then [(k', phi)] else []
+    (contract k n cause gs).flatMap fun (k', n', phi, subst') =>
+      if maybeSolved ct pos eks escape k' n' subst' k.kabsent then [(k', phi)] else []
 
 -- ── escapeKeys / addListeners ─────────────────────────────────────────────────
 

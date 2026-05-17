@@ -450,7 +450,7 @@ private partial def graphClose
 private partial def nodeGraphCloseAll_loop
     (initOrd : List Pair) : List Pair → Bool → List Pair → List Pair
   | ords, false, [] => ords
-  | ords, true,  [] => nodeGraphCloseAll_loop initOrd ords false initOrd
+  | ords, true,  [] => nodeGraphCloseAll_loop initOrd ords false ords
   | ords, rpt, (n0, n1) :: pairs =>
     let direct := initOrd.filterMap (fun (a, b) => if b == n0 then some a else none)
     let myPreds := if n0.2 == 0 then direct else adjoin (n0.1, n0.2 - 1) direct

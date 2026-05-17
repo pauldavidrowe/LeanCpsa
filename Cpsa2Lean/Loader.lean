@@ -780,12 +780,13 @@ private def validateProt (pos : Pos) (name : String) (prot : Prot)
 /-- Load a protocol from its S-expression body.
     Mirrors `loadProt :: MonadFail m => Sig -> String -> Gen -> Pos
              -> [SExpr Pos] -> m Prot`. -/
-private def loadProt (sig : Sig) (nom : String) (origin : Gen) (pos : Pos)
+private def loadProt (sig : Sig) (_ : String) (origin : Gen) (pos : Pos)
     (xs : List (SExpr Pos)) : Except String Prot :=
   match xs with
   | .sym _ name :: .sym _ alg :: x :: rest => do
-      if alg != nom then
-        .error s!"{pos}Expecting terms in algebra {nom}"
+      -- PDR: These aren't needed because we check for a good alg
+      --if alg != nom then
+      --  .error s!"{pos}Expecting terms in algebra {nom}"
       let sig' ← loadLang pos sig rest
       let (gen, rolesAndPreRules, remaining) ← loadRoles sig' origin (x :: rest)
       let (gen', r) ← mkListenerRole sig' pos gen

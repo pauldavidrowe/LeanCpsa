@@ -292,7 +292,7 @@ private def maps (k : Preskel) : List (SExpr Unit) :=
     Mirrors `origs :: Preskel -> [SExpr ()]`. -/
 private def origs (k : Preskel) : List (SExpr Unit) :=
   let ctx := addToContext emptyContext (kvars k)
-  k.korig.reverse.flatMap fun (t, ns) => --reverse to match Haskell order. Maybe change haskell order.
+  k.korig.flatMap fun (t, ns) => --PDR: Is this the cause of different origs order?
     ns.map fun n => .lst () [displayTerm ctx t, displayNode n]
 
 /-- Display unique-generation nodes.

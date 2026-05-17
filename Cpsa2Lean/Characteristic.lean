@@ -86,10 +86,11 @@ private def mkInst (g : Gen) (as_ : Conj) (z : Term) (r : Role) (h : Int)
     Mirrors `foldInsts :: MonadFail m => Gen -> Conj -> [(Term,(Role,Int))] ->
                           m (Gen, [Instance])`. -/
 private def foldInsts (g : Gen) (as_ : Conj) (srl : List (Term × (Role × Int)))
-    : Except String (Gen × List Instance) :=
-  srl.foldlM (fun (g, insts) (z, (r, h)) => do
+    : Except String (Gen × List Instance) := do
+  let (g', insts) ← srl.foldlM (fun (g, insts) (z, (r, h)) => do
     let (g', inst) ← mkInst g as_ z r h
     pure (g', inst :: insts)) (g, [])
+  pure (g', insts.reverse)
 
 -- ── mkInsts ───────────────────────────────────────────────────────────────────
 
