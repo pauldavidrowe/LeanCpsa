@@ -2,7 +2,16 @@
 Cpsa2Lean.GenRules
 
 Port of CPSA.GenRules (MITRE cpsa v4.4.8).
-Generates protocol rules when loading protocols from S-expressions.
+
+Copyright (c) 2026 Paul D. Rowe
+
+Generates rules when loading protocols from S-expressions.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
 -/
 
 import Cpsa2Lean.Signature

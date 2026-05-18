@@ -2,7 +2,16 @@
 Cpsa2Lean.Characteristic
 
 Port of CPSA.Characteristic (MITRE cpsa v4.4.8).
-Makes the characteristic skeleton of a security goal.
+
+Copyright (c) 2026 Paul D. Rowe
+
+Makes the characteristic skeleton of a security goal
+
+Copyright (c) 2015 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
 -/
 
 import Cpsa2Lean.Algebra

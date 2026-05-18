@@ -2,9 +2,27 @@
 Cpsa2Lean.Lib.Pretty
 
 Port of CPSA.Lib.Pretty (MITRE cpsa v4.4.8).
-A simple pretty printer. Algorithm by Lawrence C. Paulson, simplifying
-one by Derek C. Oppen.
 
+Copyright (c) 2026 Paul D. Rowe
+
+A simple pretty printer
+
+Copyright (c) 2009 The MITRE Corporation
+
+This module contains a simple pretty printer.
+The alogithm is by Lawrence C. Paulson, who simplified an algorithm
+by Derek C. Oppen.
+
+Derek C. Oppen, Prettyprinting, ACM Transactions on Programming
+Languages and Systems, Vol 2, No. 4, October 1980, Pages 465-483.
+
+The code is based on the ML Programs from Chapter 8 of
+ML for the Working Programmer, 2nd edition
+by Lawrence C. Paulson, Computer Laboratory, University of Cambridge.
+(Cambridge University Press, 1996)
+-/
+
+/-
 `pr` is simplified from `ShowS` (a `String → String` difference list)
 to return a plain `String`; `printing` is restructured to be
 strictly left-to-right so it works without lazy evaluation.

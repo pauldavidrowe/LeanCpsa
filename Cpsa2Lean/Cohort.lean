@@ -2,7 +2,16 @@
 Cpsa2Lean.Cohort
 
 Port of CPSA.Cohort (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe 
+
 Computes the cohort associated with a skeleton or its generalization.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
 -/
 
 import Cpsa2Lean.Algebra

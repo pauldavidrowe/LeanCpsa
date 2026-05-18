@@ -1,8 +1,20 @@
 /-
 Cpsa2Lean.Lib.Entry
 
-Port of the portable subset of CPSA.Lib.Entry (MITRE cpsa v4.4.8).
+Port of CPSA.Lib.Entry (MITRE cpsa v4.4.8).
 
+Copyright (c) 2026 Paul D. Rowe
+
+Provides a common entry point for programs based on the CPSA library.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 The IO-bound functions (`start`, `opts`, `openInput`, `usage`, `abort`,
 `success`, `readSExpr`, `gentlyReadSExpr`, `tryIO`, `outputHandle`,
 `filterOptions`, `filterInterp`) are omitted — they depend on

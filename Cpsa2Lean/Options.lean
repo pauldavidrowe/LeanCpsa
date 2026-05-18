@@ -1,7 +1,18 @@
 /-
 Cpsa2Lean.Options
 
+Command line options
 Port of CPSA.Options (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe 
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 Defines the `Options` record and its defaults, plus the `Flag` ADT used
 by the command-line option parser.
 

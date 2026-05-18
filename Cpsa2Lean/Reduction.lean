@@ -2,6 +2,19 @@
 Cpsa2Lean.Reduction
 
 Port of CPSA.Reduction (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe
+
+Term reduction for the CPSA solver.
+
+Copyright (c) 2010 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 Implements the top-level CPSA search loop (term reduction on skeletons).
 
 The Haskell original threads `n` (step counter), `seen` (isomorphism history),

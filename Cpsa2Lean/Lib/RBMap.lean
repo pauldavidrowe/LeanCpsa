@@ -5,6 +5,8 @@ A thin shim over `Lean.RBMap` that exposes a `Data.Map`-like API for
 the port of CPSA.Algebra and related files.  There is no corresponding
 Haskell source file; this module is new infrastructure.
 
+Copyright (c) 2026 Paul D. Rowe
+
 Also defines `RBSet` (= `Lean.RBMap α Unit compare`) to cover the
 `Data.Set` surface used in the same files, including `M.keysSet`.
 

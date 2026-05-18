@@ -2,8 +2,19 @@
 Cpsa2Lean.LoadFormulas
 
 Port of CPSA.LoadFormulas (MITRE cpsa v4.4.8).
-Loads security-goal formulas from S-expressions.
 
+Copyright (c) 2026 Paul D. Rowe
+
+Loads formulas from S-expressions as part of the CPSA loader process.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 All functions that return `MonadFail m => m a` in Haskell are ported as
 `Except String`.  Error messages mirror the Haskell originals using the
 `Pos` ToString instance (`s!"{pos}..."`) so position prefixes are preserved.

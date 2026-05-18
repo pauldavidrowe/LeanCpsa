@@ -3,6 +3,26 @@ Cpsa2Lean.Lib.SExpr
 
 Port of CPSA.Lib.SExpr (MITRE cpsa v4.4.8).
 
+Copyright (c) 2026 Paul D. Rowe 
+
+This module provides a data structure for S-expressions, and a reader.
+The reader records the position in the file at which items that make
+up the list are located.
+
+The S-expressions used are restricted so that most dialects of Lisp
+can read them, and characters within symbols and strings never need
+quoting. Every list is proper. An atom is either a symbol, an integer,
+or a string. The characters that make up a symbol are the letters, the
+digits, and these special characters.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 S-expressions are restricted so that most Lisp dialects can read them.
 Every list is proper.  An atom is a symbol, an integer, or a quoted string.
 Symbol characters are letters, digits, and: + - * / < = > ! ? : $ % _ & ~ ^

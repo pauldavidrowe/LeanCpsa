@@ -2,6 +2,19 @@
 Cpsa2Lean.Protocol
 
 Port of CPSA.Protocol (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe
+
+Protocol data structures.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 This file is built in six stages; each stage is delimited by a header comment.
 
 Stage 1: Event type and basic operations.
@@ -9,7 +22,7 @@ Stage 2: Trace position functions.
 Stage 3: Role structure and mkRole.
 Stage 4: Divergence analysis.
 Stage 5: AForm, Goal, Conj, and formula operations.
-Stage 6: Rule classification and Protocol structure. [TODO]
+Stage 6: Rule classification and Protocol structure.
 -/
 
 import Cpsa2Lean.Algebra

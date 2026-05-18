@@ -1,7 +1,20 @@
 /-
 Cpsa2Lean.Signature
 
-Port of the data model from `src/CPSA/Signature.hs` (MITRE cpsa v4.4.8).
+Port of CPSA.Signature.hs (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe 
+
+Signatures for algebras
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 Defines `Sig`, `Operator`, `defaultSig`, `findOper`, and `loadSig`.
 -/
 

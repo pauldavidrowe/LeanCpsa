@@ -2,8 +2,24 @@
 Cpsa2Lean.Lib.Printer
 
 Port of CPSA.Lib.Printer (MITRE cpsa v4.4.8).
-CPSA-specific S-expression pretty printer built on `Cpsa2Lean.Lib.Pretty`.
 
+Copyright (c) 2026 Paul D. Rowe
+
+A CPSA specific pretty printer using S-expressions.
+The pretty printer indents a constant amount for each list.  The
+top-level lists are laid out specially.  Whenever some breaks
+occur, all breaks are forced.  Also, breaks are only placed before
+strings and lists.  CPSA protocols are handled specially.  Each
+defrole is handled as are top-level lists.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 Special layout rules:
   - `defprotocol` bodies get per-element line breaks.
   - `defrole` and `defrule` sub-forms inside `defprotocol` get group/formula layout.

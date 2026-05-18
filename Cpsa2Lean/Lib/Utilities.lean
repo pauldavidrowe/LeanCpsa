@@ -2,7 +2,20 @@
 Cpsa2Lean.Lib.Utilities
 
 Port of CPSA.Lib.Utilities (MITRE cpsa v4.4.8).
-Generic list utilities and a cycle-detection algorithm.
+
+Copyright (c) 2026 Paul D. Rowe 
+
+Contains generic list functions and a function that determines if a
+graph has a cycle.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 
 `seqList` is omitted — Lean is strict, so it would be the identity.
 `assert` maps `MonadFail` to `Except String`.

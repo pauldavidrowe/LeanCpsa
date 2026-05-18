@@ -21,7 +21,6 @@ cpsa2lean/
         └── SExpr.lean     # Common library for S-Expressions
         └── Utilities.lean # Other miscellaneous utitlities
     └── Algebra.lean       # Core algebra implementation
-    └── Basic.lean         # Starter module (placeholder, TODO: delete)
     └── Channel.lean       # Channel implementation
     └── Characteristic.lean # Make a skeleton from a defgoal
     └── Cohort.lean        # Defines main cohort steps

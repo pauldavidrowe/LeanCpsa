@@ -2,9 +2,16 @@
 Cpsa2Lean.Loader
 
 Port of CPSA.Loader (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe
+
 Loads protocols and preskeletons from S-expressions.
 
-The top-level entry point is `loadSExprs`.
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
 -/
 
 import Cpsa2Lean.Algebra

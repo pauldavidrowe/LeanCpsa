@@ -2,6 +2,19 @@
 Cpsa2Lean.Operation
 
 Port of CPSA.Operation (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe
+
+The operation datastructure
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+-/
+
+/-
 Defines the data structures that track how preskeletons are created
 during bundle analysis.
 

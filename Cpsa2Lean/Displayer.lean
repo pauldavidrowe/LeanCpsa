@@ -2,7 +2,16 @@
 Cpsa2Lean.Displayer
 
 Port of CPSA.Displayer (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe 
+
 Displays protocols and preskeletons as S-expressions.
+
+Copyright (c) 2009 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
 -/
 
 import Cpsa2Lean.Algebra

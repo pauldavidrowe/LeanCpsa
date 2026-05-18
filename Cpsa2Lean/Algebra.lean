@@ -1,9 +1,29 @@
 /-
 Cpsa2Lean.Algebra
 
+Port of CPSA.Algebra (MITRE cpsa v4.4.8).
+
+Copyright (c) 2026 Paul D. Rowe
+
+Diffie-Hellman Algebra implementation
+
+This module implements a version of Diffie-Hellman in which
+exponents form a free Abelian group.  It uses the basis elements as
+atoms principle.
+
+To support security goals, the message algebra has been augmented
+with support for variables of sort node and pairs of integers.  The
+constructor D is used as N is taken for numbers in S-Expressions.
+
+Copyright (c) 2021 The MITRE Corporation
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the BSD License as published by the
+University of California.
+
 Stage 1: core type definitions.
 
-Port of CPSA.Algebra (MITRE cpsa v4.4.8).
+
 This file covers the data types, their instances, and the algebraic
 helper functions through `group`/`separateVar`.  Later stages will add
 `termWellFormed`, variable loading, substitution, matching/unification,
