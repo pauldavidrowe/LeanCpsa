@@ -1,7 +1,8 @@
 # cpsa2lean
 
 A Lean 4 port of the CPSA (Cryptographic Protocol Shapes Analyzer) Haskell
-codebase.
+codebase. This port made heavy use of Claude Code. It is known to pass the 
+CPSA 4.4.8 test suite cleanly.
 
 ## Layout
 
@@ -53,4 +54,12 @@ lake build
 ## Adding modules
 
 Each new module lives under `Cpsa2Lean/` and must be re-exported from
+
 `Cpsa2Lean.lean` with an `import` line.
+
+## TODO
+
+- Consider porting secondary executables as well
+- Replicate test suite and testing infrastructure
+- Reduce the number of partial functions by proving termination
+- Identify other properties of code to prove
