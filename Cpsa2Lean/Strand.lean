@@ -3471,11 +3471,16 @@ private def rlauth (rule : String) (t : Term) : Rewrite := fun k ge =>
     else [(mkPreskelAddAuth k t', ge)]
 
 private def rafact (rule : String) (name : String) (fts : List Term) : Rewrite := fun k ge =>
-  let (_, e) := ge
+  let (g, e) := ge
   let fts' := fts.map (rFactLookup rule e)
   let fact  := { name := name, terms := fts' }
   if k.kfacts.contains fact then [(k, ge)]
-  else [(mkPreskelAddFact k fact, (k.gen, e))]
+  else
+    let k' := newPreskel g k.shared k.insts k.orderings
+                k.knon k.kpnon k.kunique k.kuniqgen k.kabsent k.kprecur
+                k.kgenSt k.kconf k.kauth (k.kfacts.eraseDups.cons fact |>.eraseDups) k.kpriority
+                k.operation k.krules k.pprob k.prob k.pov
+    [(k', (k'.gen, e))]
 
 private def req (rule : String) (x y : Term) : Rewrite := fun k ge =>
   let (g, e) := ge
