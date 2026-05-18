@@ -31,7 +31,7 @@ private def showTerm (t : Term) : String :=
     Uses the original index as a tiebreaker to make the sort stable,
     matching Haskell's `Data.List.sortBy` which is a stable sort. -/
 private def sortConj (c : Conj) : Conj :=
-  (c.enum.toArray.qsort (fun (i, (_, x)) (j, (_, y)) =>
+    ((Cpsa2Lean.Lib.enum c).toArray.qsort (fun (i, (_, x)) (j, (_, y)) =>
     match aFormOrder x y with
     | .lt => true
     | .eq => i < j

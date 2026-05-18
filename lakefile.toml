@@ -1,6 +1,6 @@
 name = "cpsa2lean"
 version = "0.1.0"
-defaultTargets = ["Cpsa2Lean", "cpsa"]
+defaultTargets = ["Cpsa2Lean", "leancpsa"]
 
 [leanOptions]
 pp.unicode.fun = true
@@ -10,5 +10,5 @@ autoImplicit = false
 name = "Cpsa2Lean"
 
 [[lean_exe]]
-name = "cpsa"
+name = "leancpsa"
 root = "Main"

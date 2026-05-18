@@ -1209,7 +1209,7 @@ partial def places (var source : Term) : List Place :=
     if var == t then ⟨path.reverse⟩ :: paths
     else match t with
     | .F _ u =>
-        u.enum.foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
+      (Cpsa2Lean.Lib.enum u).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
     | .G g =>
         if Lean.RBMap.contains g (varId var)
         then ⟨path.reverse⟩ :: paths
@@ -1225,7 +1225,7 @@ partial def carriedPlaces (target source : Term) : List Place :=
     if target == t then ⟨path.reverse⟩ :: paths
     else match t with
     | .F (.Tupl _) ts =>
-        ts.enum.foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
+      (Cpsa2Lean.Lib.enum ts).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
     | .F (.Enc _) [t0, _] => f paths (0 :: path) t0
     | _ => paths
   f [] [] source
@@ -1237,7 +1237,7 @@ partial def carriedRelPlaces (target source : Term) (avoid : TermSet) : List Pla
     if relevant avoid t target then ⟨path.reverse⟩ :: paths
     else match t with
     | .F (.Tupl _) ts =>
-        ts.enum.foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
+      (Cpsa2Lean.Lib.enum ts).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
     | .F (.Enc _) [t0, _] => f paths (0 :: path) t0
     | _ => paths
   f [] [] source
@@ -1249,7 +1249,7 @@ def replace (var : Term) (pl : Place) (source : Term) : Term :=
     | [],        _      => var
     | i :: path, .F s u =>
         let n := i.toNat
-        match u.get? n with
+        match Cpsa2Lean.Lib.maybeNth u n with
         | some ti => .F s (Cpsa2Lean.Lib.replaceNth (loop path ti) n u)
         | none    => assertError "Algebra.replace: Bad path to term"
     | _,         _      => assertError "Algebra.replace: Bad path to term"
@@ -1273,7 +1273,7 @@ def ancestors (source : Term) (pl : Place) : List Term :=
   let rec loop (ts : List Term) : List Int → Term → List Term
     | [],        _           => ts
     | i :: path, t@(.F _ u) =>
-        match u.get? i.toNat with
+        match Cpsa2Lean.Lib.maybeNth u i.toNat with
         | some t' => loop (t :: ts) path t'
         | none    => assertError "Algebra.ancestors: Bad path to term"
     | [_],       t@(.G _)   => t :: ts
@@ -1712,7 +1712,7 @@ def smallest (t : List Maplet) : Id × Int × Int :=
   match t with
   | [] => assertError "Algebra.smallest: empty list"
   | (x0, (_, c0)) :: rest =>
-      rest.enum.foldl
+      (Cpsa2Lean.Lib.enum rest).foldl
         (fun (v, ci, pos) (j, (x, (_, c))) =>
           if (j + 1 : Int) >= 0 && c.natAbs > 0 && c.natAbs < ci.natAbs
           then (x, c, j + 1)
@@ -2500,7 +2500,7 @@ def rootName (name : String) : String :=
         else findHyphen (i + 1) rest
   match findHyphen 0 cs with
   | none   => name
-  | some i => String.mk (cs.take i)
+  | some i => String.ofList (cs.take i)
 
 /-- True when the context already contains a binding for `x`. -/
 def hasId (ctx : Context) (x : Id) : Bool :=

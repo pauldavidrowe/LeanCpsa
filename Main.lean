@@ -76,7 +76,7 @@ private def parseOne (arg : String) (rest : List String)
     let longEqArg := arg.startsWith ("--" ++ key ++ "=")
     if longEq then shortArg flag
     else if longEqArg then
-      some (flag (arg.drop (("--" ++ key ++ "=").length)), rest)
+      some (flag ((arg.drop (("--" ++ key ++ "=").length)).toString), rest)
     else none
   match arg with
   | "-o" => shortArg .Output

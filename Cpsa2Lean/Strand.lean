@@ -1064,7 +1064,7 @@ def fperms (g g' : Gist) (env renv : GenEnv) : List (GenEnv × GenEnv × List Na
 /-- Inverse of a strand permutation.
     Mirrors `invperm :: [Int] -> [Int]`. -/
 def invperm (p : List Sid) : List Sid :=
-  let indexed := p.enum.map fun (i, s) => (s, Int.ofNat i)
+  let indexed := (Cpsa2Lean.Lib.enum p).map fun (i, s) => (s, Int.ofNat i)
   (indexed.mergeSort fun a b => a.1 < b.1).map Prod.snd
 
 /-- Apply a strand permutation to a node.
@@ -2549,7 +2549,7 @@ private def glength (r : Role) (z ht : Term) : Sem := fun k ge =>
   | some h =>
       match strdLookup ge.2 z with
       | none   =>
-          k.insts.enum.flatMap fun (sn, inst) =>
+          (Cpsa2Lean.Lib.enum k.insts).flatMap fun (sn, inst) =>
             glengthExtendEnv r z (Int.ofNat sn) h inst ge
       | some s =>
           if s < nstrands k then glengthExtendEnv r z s h (strandInst k s) ge
@@ -2572,7 +2572,7 @@ private def paramMatch (r : Role) (pname : Term) (h : Int) (z : Term)
 private def gparam (r : Role) (pname : Term) (h : Int) (z t' : Term) : Sem := fun k ge =>
   match strdLookup ge.2 z with
   | none   =>
-      k.insts.enum.flatMap fun (sn, inst) =>
+      (Cpsa2Lean.Lib.enum k.insts).flatMap fun (sn, inst) =>
         paramMatch r pname h z (Int.ofNat sn) t' inst ge
   | some s =>
       if s < nstrands k then paramMatch r pname h z s t' (strandInst k s) ge

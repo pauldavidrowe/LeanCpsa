@@ -87,12 +87,12 @@ private def printing (margin : Int) (es : List Pretty)
       if !force && n + after' <= space then
         -- No break: emit `n` spaces.
         let (sp, frag) := printing margin rest blockspace after force (space - n)
-        (sp, String.mk (List.replicate n.toNat ' ') ++ frag)
+        (sp, String.ofList (List.replicate n.toNat ' ') ++ frag)
       else
         -- Break: newline then indent to `blockspace`.
         let ind : Int := margin - blockspace
         let (sp, frag) := printing margin rest blockspace after force (margin - ind)
-        (sp, "\n" ++ String.mk (List.replicate ind.toNat ' ') ++ frag)
+        (sp, "\n" ++ String.ofList (List.replicate ind.toNat ' ') ++ frag)
     | .Blo bes indent _ =>
       let after'      := breakdist rest after
       let (sp2, s2)   := printing margin bes (space - indent) after' false space

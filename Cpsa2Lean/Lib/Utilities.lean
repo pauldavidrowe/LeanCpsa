@@ -49,9 +49,20 @@ def replaceNth {α : Type} (z : α) (n : Nat) : List α → List α
 
 /-- Safe index lookup (0-based).  Mirrors `maybeNth` in `Utilities.hs`. -/
 def maybeNth {α : Type} (xs : List α) (i : Nat) : Option α :=
-  xs.get? i
+  match i, xs with
+  | 0, x :: _ => some x
+  | n + 1, _ :: rest => maybeNth rest n
+  | _, _ => none
 
--- ── Other list utilities ──────────────────────────────────────────────────────
+/- Enumerate a list as `[(0,x0),(1,x1),...]` -/
+def enum {α : Type} (xs : List α) : List (Nat × α) :=
+  let rec loop (i : Nat) (acc : List (Nat × α)) (ys : List α) :=
+    match ys with
+    | [] => acc
+    | y :: ys' => loop (i+1) ((i, y) :: acc) ys'
+  loop 0 [] xs |> List.reverse
+
+/- Provide List-style indexed accessors used in the original CPSA code -/
 
 /-- Maximum of a non-empty list, or `none` for the empty list. -/
 def listMax {α : Type} [Max α] : List α → Option α
@@ -162,3 +173,18 @@ def isAcyclic {α : Type} [BEq α] (cmp : α → α → Ordering)
   edges.all fun e => !backEdge numbering e
 
 end Cpsa2Lean.Lib
+
+/- Global List accessors that mirror the original CPSA code's use of
+  dot-projections like `xs.get?` and `xs.get!`. These delegate to the
+  safe `maybeNth` helper in `Cpsa2Lean.Lib`. -/
+namespace List
+
+def get? {α : Type} (xs : List α) (i : Nat) : Option α :=
+  Cpsa2Lean.Lib.maybeNth xs i
+
+def get! {α : Type} [Inhabited α] (xs : List α) (i : Nat) : α :=
+  match get? xs i with
+  | some a => a
+  | none   => panic! "List.get!: index out of bounds"
+
+end List

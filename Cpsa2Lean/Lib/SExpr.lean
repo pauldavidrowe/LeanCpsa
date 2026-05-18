@@ -294,7 +294,7 @@ mutual
       : IO (Nat × Nat × Token) := do
     match ← hGetChar ph with
     | none      => hAbort ph s!"{pos}End of input in string"
-    | some '"'  => return (l, c + 1, .atom (.str pos (String.mk s.reverse)))
+    | some '"'  => return (l, c + 1, .atom (.str pos (String.ofList s.reverse)))
     | some '\\' => scanEscaped ph l (c + 1) pos s
     | some ch   =>
       if isPrint ch then scanStr ph l (c + 1) pos (ch :: s)
@@ -341,18 +341,18 @@ mutual
   private partial def scanSymbol (ph : PosHandle) (l c : Nat) (pos : Pos) (s : List Char)
       : IO (Nat × Nat × Token) := do
     match ← hPeekChar ph with
-    | none    => return (l, c, .atom (.sym pos (String.mk s.reverse)))
+    | none    => return (l, c, .atom (.sym pos (String.ofList s.reverse)))
     | some ch =>
       if isSym ch then do
         _ ← hGetChar ph
         scanSymbol ph l (c + 1) pos (ch :: s)
       else
-        return (l, c, .atom (.sym pos (String.mk s.reverse)))
+        return (l, c, .atom (.sym pos (String.ofList s.reverse)))
 
   -- Build a `.num` token from the digit accumulator `s`.
   private partial def mkNumTok (ph : PosHandle) (l c : Nat) (pos : Pos) (s : List Char)
       : IO (Nat × Nat × Token) := do
-    let numStr := String.mk s.reverse
+    let numStr := String.ofList s.reverse
     match numStr.toInt? with
     | some n => return (l, c, .atom (.num pos n))
     | none   => hAbort ph s!"{pos}Invalid number: {numStr}"
