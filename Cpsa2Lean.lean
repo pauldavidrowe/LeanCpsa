@@ -4,7 +4,6 @@
 -- As the Haskell CPSA source is ported, add `import` lines here for each
 -- new submodule so that `lake build` builds the whole library.
 
-import Cpsa2Lean.Basic
 import Cpsa2Lean.Signature
 import Cpsa2Lean.Lib.SExpr
 import Cpsa2Lean.Lib.Utilities
