@@ -370,7 +370,7 @@ private def loadBaseTerm (sig : Sig) (vars : List Term) (x : SExpr Pos)
     Mirrors `loadBaseTerms`. -/
 private def loadBaseTerms (sig : Sig) (vars : List Term) (xs : List (SExpr Pos))
     : Except String (List Term) :=
-  xs.foldlM (fun acc x => do
+  xs.foldrM (fun x acc => do
     let t ← loadBaseTerm sig vars x
     .ok (adjoin t acc)) []
 

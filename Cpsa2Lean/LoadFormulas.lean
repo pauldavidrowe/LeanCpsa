@@ -27,9 +27,15 @@ private def showTerm (t : Term) : String :=
   toString (displayTerm (addToContext emptyContext [t]) t)
 
 /-- Sort a `Conj` by constructor order of its `AForm` fields.
-    Mirrors `L.sortBy (\(_,x) (_,y) -> aFormOrder x y)`. -/
+    Mirrors `L.sortBy (\(_,x) (_,y) -> aFormOrder x y)`.
+    Uses the original index as a tiebreaker to make the sort stable,
+    matching Haskell's `Data.List.sortBy` which is a stable sort. -/
 private def sortConj (c : Conj) : Conj :=
-  (c.toArray.qsort (fun (_, x) (_, y) => aFormOrder x y == .lt)).toList
+  (c.enum.toArray.qsort (fun (i, (_, x)) (j, (_, y)) =>
+    match aFormOrder x y with
+    | .lt => true
+    | .eq => i < j
+    | .gt => false)).toList.map Prod.snd
 
 -- ── Variable construction ──────────────────────────────────────────────────────
 

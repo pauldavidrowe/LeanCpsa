@@ -125,10 +125,10 @@ inductive Symbol where
   | Tupl (s : String)   -- tuple
   | Enc  (s : String)   -- encryption
   | Hash (s : String)   -- hash
-  deriving Repr, BEq, DecidableEq, Ord
+  deriving Repr, BEq, DecidableEq
 
 -- PDR: The derived Ord might be wrong. This was AI-generated.
-/- private def Symbol.tag : Symbol → Nat
+private def Symbol.tag : Symbol → Nat
   | .Data _  => 0  | .Akey _  => 1  | .Name    => 2  | .Pval    => 3
   | .Base    => 4  | .Ltk     => 5  | .Bltk    => 6  | .Invk _  => 7
   | .Pubk    => 8  | .Chan    => 9  | .Locn    => 10 | .Genr    => 11
@@ -146,7 +146,7 @@ instance : Ord Symbol where
       | .Enc  x, .Enc  x' => compare x x'
       | .Hash x, .Hash x' => compare x x'
       | _,       _        => .eq
- -/
+
 -- ── Term ─────────────────────────────────────────────────────────────────────
 
 /-- A term in the Basic Crypto Algebra.

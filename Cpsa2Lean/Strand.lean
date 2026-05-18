@@ -846,7 +846,7 @@ def newPreskel (gen : Gen) (shared : Shared) (insts : List Instance)
   let gpOrds     := gpOrdsAll.filter (fun (p : Pair) => p.1.1 != p.2.1)
   let orig       := unique'.map (originationNodes strands)
   let ugen       := uniqgen'.map (generationNodes strands)
-  let tcEdges    := (graphClose getNode edges).filter pairWellOrdered
+  let tcEdges    := (graphClose getNode (graphEdges strands)).filter pairWellOrdered
   let strandids  := (nats insts.length).map Int.ofNat
   let k : Preskel := {
     gen        := gen,
@@ -2721,11 +2721,16 @@ private def glocnSem (n : NodeTerm) (k : Preskel) (ge : GenEnv) : List (Term × 
           (nodeMatch n p ge).map fun ge => (loc, ge)
 
 /-- Same-location predicate.
-    Mirrors `gsamelocn :: NodeTerm -> NodeTerm -> Sem`. -/
+    Mirrors `gsamelocn :: NodeTerm -> NodeTerm -> Sem`.
+    Uses nested `foldl` with prepend to match Haskell's accumulation order:
+    outer processes left-to-right prepending each inner result, and the
+    inner also processes left-to-right prepending matches. This produces the
+    same environment ordering as Haskell, which matters for fact generation. -/
 private def gsamelocn (n n' : NodeTerm) : Sem := fun k ge =>
-  (glocnSem n k ge).flatMap fun (l, ge) =>
-    (glocnSem n' k ge).flatMap fun (l', ge) =>
-      if l' == l then [ge] else []
+  (glocnSem n k ge).foldl (fun soFar (l, ge) =>
+    (glocnSem n' k ge).foldl (fun soFar' (l', ge') =>
+      if l' == l then ge' :: soFar' else soFar') []
+    ++ soFar) []
 
 -- ── satisfy / conjoin / conjoinEbvs ──────────────────────────────────────────
 
