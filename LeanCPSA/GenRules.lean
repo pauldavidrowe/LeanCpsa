@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.GenRules
+LeanCPSA.GenRules
 
 Port of CPSA.GenRules (MITRE cpsa v4.4.8).
 
@@ -14,20 +14,20 @@ modify it under the terms of the BSD License as published by the
 University of California.
 -/
 
-import Cpsa2Lean.Signature
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Channel
-import Cpsa2Lean.Protocol
-import Cpsa2Lean.LoadFormulas
+import LeanCPSA.Signature
+import LeanCPSA.Algebra
+import LeanCPSA.Channel
+import LeanCPSA.Protocol
+import LeanCPSA.LoadFormulas
 
-namespace Cpsa2Lean.GenRules
+namespace LeanCPSA.GenRules
 
-open Cpsa2Lean.Signature (Sig)
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Channel (ChMsg)
-open Cpsa2Lean.Protocol
-open Cpsa2Lean.Lib (assertError)
-open Cpsa2Lean.LoadFormulas
+open LeanCPSA.Signature (Sig)
+open LeanCPSA.Algebra
+open LeanCPSA.Channel (ChMsg)
+open LeanCPSA.Protocol
+open LeanCPSA.Lib (assertError)
+open LeanCPSA.LoadFormulas
 
 -- ── Type aliases ──────────────────────────────────────────────────────────────
 
@@ -444,4 +444,4 @@ def cakeRule (sig : Sig) (g : Gen) : Gen × Rule :=
       | (g, _) => (g, theVacuousRule)
   | (g, _) => (g, theVacuousRule)
 
-end Cpsa2Lean.GenRules
+end LeanCPSA.GenRules

@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Channel
+LeanCPSA.Channel
 
 Port of CPSA.Channel (MITRE cpsa v4.4.8).
 
@@ -20,12 +20,12 @@ A "channel" in CPSA is simply a variable of sort `chan`.  A channel
 message is either a plain `Term` or a `(channel, payload)` pair.
 -/
 
-import Cpsa2Lean.Algebra
+import LeanCPSA.Algebra
 
-namespace Cpsa2Lean.Channel
+namespace LeanCPSA.Channel
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Lib (assertError)
+open LeanCPSA.Algebra
+open LeanCPSA.Lib (assertError)
 
 -- ── ChMsg ─────────────────────────────────────────────────────────────────────
 
@@ -202,4 +202,4 @@ def cmtAncestors (cm : ChMsg) (pl : Place) : List CMT :=
   | _,           _               =>
       assertError "Channel.cmtAncestors: Bad path to term"
 
-end Cpsa2Lean.Channel
+end LeanCPSA.Channel

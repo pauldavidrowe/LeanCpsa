@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Lib.SExpr
+LeanCPSA.Lib.SExpr
 
 Port of CPSA.Lib.SExpr (MITRE cpsa v4.4.8).
 
@@ -30,7 +30,7 @@ A symbol may not begin with a digit or a sign followed by a digit.
 Comments begin with `;` and run to end of line.
 -/
 
-namespace Cpsa2Lean.Lib
+namespace LeanCPSA.Lib
 
 -- ── SExpr data type ───────────────────────────────────────────────────────────
 
@@ -411,4 +411,4 @@ def load (ph : PosHandle) : IO (Option (SExpr Pos)) := do
   | .eof       =>
     return none
 
-end Cpsa2Lean.Lib
+end LeanCPSA.Lib

@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Lib.Pretty
+LeanCPSA.Lib.Pretty
 
 Port of CPSA.Lib.Pretty (MITRE cpsa v4.4.8).
 
@@ -28,7 +28,7 @@ to return a plain `String`; `printing` is restructured to be
 strictly left-to-right so it works without lazy evaluation.
 -/
 
-namespace Cpsa2Lean.Lib
+namespace LeanCPSA.Lib
 
 -- ── Pretty document type ──────────────────────────────────────────────────────
 
@@ -129,4 +129,4 @@ def pr (margin : Int) (e : Pretty) : String :=
 
 end Pretty
 
-end Cpsa2Lean.Lib
+end LeanCPSA.Lib

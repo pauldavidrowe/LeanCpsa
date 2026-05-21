@@ -8,16 +8,16 @@ Reads command-line arguments, opens input, expands macros, and dispatches
 to the reduction engine or the macro-expand-only pretty-printer.
 -/
 
-import Cpsa2Lean
+import LeanCPSA
 
-open Cpsa2Lean.Lib (SExpr Pos PosHandle comment posHandle load
+open LeanCPSA.Lib (SExpr Pos PosHandle comment posHandle load
                     readSExprs expand writeSExprH writeLnSExprH writeCommentH
                     abort success outputHandle cpsaVersion defaultMargin)
-open Cpsa2Lean.Options (Options Flag defaultOptions)
-open Cpsa2Lean.Algebra (name algAlias origin)
-open Cpsa2Lean.Signature (Sig defaultSig loadSig)
-open Cpsa2Lean.Loader (loadSExprs)
-open Cpsa2Lean.Reduction (runSolver)
+open LeanCPSA.Options (Options Flag defaultOptions)
+open LeanCPSA.Algebra (name algAlias origin)
+open LeanCPSA.Signature (Sig defaultSig loadSig)
+open LeanCPSA.Loader (loadSExprs)
+open LeanCPSA.Reduction (runSolver)
 
 -- ── Algebra constants ─────────────────────────────────────────────────────────
 
@@ -287,7 +287,7 @@ private def prettyPrint (opts : Options) (sexprs : List (SExpr Pos)) : IO Unit :
 /-- Open output, write header comments, load preskeletons, run the solver.
     Mirrors `go :: String -> Gen -> [String] -> Maybe (SExpr Pos) ->
                  Options -> [SExpr Pos] -> IO ()`. -/
-private def go (nom : String) (gen : Cpsa2Lean.Algebra.Gen) (files : List String)
+private def go (nom : String) (gen : LeanCPSA.Algebra.Gen) (files : List String)
     (herald : Option (SExpr Pos)) (opts : Options)
     (sexprs : List (SExpr Pos)) : IO Unit := do
   let sig   ← getSig herald

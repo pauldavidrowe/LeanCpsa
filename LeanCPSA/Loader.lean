@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Loader
+LeanCPSA.Loader
 
 Port of CPSA.Loader (MITRE cpsa v4.4.8).
 
@@ -14,25 +14,25 @@ modify it under the terms of the BSD License as published by the
 University of California.
 -/
 
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Protocol
-import Cpsa2Lean.Operation
-import Cpsa2Lean.Strand
-import Cpsa2Lean.Characteristic
-import Cpsa2Lean.LoadFormulas
-import Cpsa2Lean.GenRules
+import LeanCPSA.Algebra
+import LeanCPSA.Protocol
+import LeanCPSA.Operation
+import LeanCPSA.Strand
+import LeanCPSA.Characteristic
+import LeanCPSA.LoadFormulas
+import LeanCPSA.GenRules
 
-namespace Cpsa2Lean.Loader
+namespace LeanCPSA.Loader
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Protocol
-open Cpsa2Lean.Operation (Node Pair Sid)
-open Cpsa2Lean.Strand
-open Cpsa2Lean.Characteristic
-open Cpsa2Lean.LoadFormulas
-open Cpsa2Lean.GenRules
-open Cpsa2Lean.Signature (Sig loadSig)
-open Cpsa2Lean.Lib (SExpr Pos adjoin assertError)
+open LeanCPSA.Algebra
+open LeanCPSA.Protocol
+open LeanCPSA.Operation (Node Pair Sid)
+open LeanCPSA.Strand
+open LeanCPSA.Characteristic
+open LeanCPSA.LoadFormulas
+open LeanCPSA.GenRules
+open LeanCPSA.Signature (Sig loadSig)
+open LeanCPSA.Lib (SExpr Pos adjoin assertError)
 
 -- ── S-expression association-list helpers ─────────────────────────────────────
 
@@ -1117,4 +1117,4 @@ def loadSExprs (sig : Sig) (nom : String) (origin : Gen)
   let (_, ks) ← xs.foldlM (loadSExpr sig nom origin) ([], [])
   .ok ks.reverse
 
-end Cpsa2Lean.Loader
+end LeanCPSA.Loader

@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Protocol
+LeanCPSA.Protocol
 
 Port of CPSA.Protocol (MITRE cpsa v4.4.8).
 
@@ -25,17 +25,17 @@ Stage 5: AForm, Goal, Conj, and formula operations.
 Stage 6: Rule classification and Protocol structure.
 -/
 
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Channel
-import Cpsa2Lean.Lib.SExpr
-import Cpsa2Lean.Lib.RBMap
-import Cpsa2Lean.Lib.Utilities
+import LeanCPSA.Algebra
+import LeanCPSA.Channel
+import LeanCPSA.Lib.SExpr
+import LeanCPSA.Lib.RBMap
+import LeanCPSA.Lib.Utilities
 
-namespace Cpsa2Lean.Protocol
+namespace LeanCPSA.Protocol
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Channel
-open Cpsa2Lean.Lib (adjoin nats union RBSet)
+open LeanCPSA.Algebra
+open LeanCPSA.Channel
+open LeanCPSA.Lib (adjoin nats union RBSet)
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- Stage 1: Event type and basic operations
@@ -347,7 +347,7 @@ structure Role where
   rabsent   : List (Term × Term)
   rconf     : List Term
   rauth     : List Term
-  rcomment  : List (Cpsa2Lean.Lib.SExpr Unit)
+  rcomment  : List (LeanCPSA.Lib.SExpr Unit)
   rsearch   : Bool
   rnorig    : List (Term × Int)
   rpnorig   : List (Term × Int)
@@ -398,38 +398,38 @@ private def traceAbsent (trace : Trace) (ugens : List Term) : List (Term × Term
 def mkRole (name : String) (vars : List Term) (trace : Trace)
     (non pnon : List (Option Int × Term)) (unique uniqgen : List Term)
     (absent : List (Term × Term)) (conf auth : List Term)
-    (comment : List (Cpsa2Lean.Lib.SExpr Unit))
+    (comment : List (LeanCPSA.Lib.SExpr Unit))
     (priority : List (Int × Int)) (rev : Bool) : Role :=
   let uniqgen' := uniqgen.eraseDups
   let absent'  := (traceAbsent trace uniqgen' ++ absent).eraseDups
   let addUniqueOrig (t : Term) : Term × Int :=
     match originationPos t trace with
     | some p => (t, p)
-    | none   => Cpsa2Lean.Lib.assertError "Protocol.mkRole: Atom does not uniquely originate"
+    | none   => LeanCPSA.Lib.assertError "Protocol.mkRole: Atom does not uniquely originate"
   let addUniqueGen (t : Term) : Term × Int :=
     match generationPos t trace with
     | some p => (t, p)
-    | none   => Cpsa2Lean.Lib.assertError "Protocol.mkRole: Atom does not uniquely generate"
+    | none   => LeanCPSA.Lib.assertError "Protocol.mkRole: Atom does not uniquely generate"
   let addNonOrig : Option Int × Term → Term × Int
     | (len, t) =>
       match usedPos t trace with
-      | none   => Cpsa2Lean.Lib.assertError "Protocol.mkRole: Atom variables not in trace"
+      | none   => LeanCPSA.Lib.assertError "Protocol.mkRole: Atom variables not in trace"
       | some p =>
         match len with
         | none       => (t, p)
         | some len   => if len >= p then (t, len)
-                        else Cpsa2Lean.Lib.assertError
+                        else LeanCPSA.Lib.assertError
                                "Protocol.mkRole: Position for atom too early in trace"
   let addAbsentPos : Term × Term → Term × Term × Int
     | (x, y) =>
       match usedPos x trace, usedPos y trace with
       | some xp, some yp => (x, y, max xp yp)
       | _,       _       =>
-          Cpsa2Lean.Lib.assertError "Protocol.mkRole: Absence variable not in trace"
+          LeanCPSA.Lib.assertError "Protocol.mkRole: Absence variable not in trace"
   let addChanPos (t : Term) : Term × Int :=
     match chanPos t trace with
     | some p => (t, p)
-    | none   => Cpsa2Lean.Lib.assertError "Protocol.mkRole: Channel not in trace"
+    | none   => LeanCPSA.Lib.assertError "Protocol.mkRole: Channel not in trace"
   let nonNub (nons : List (Option Int × Term)) : List (Option Int × Term) :=
     (nons.foldl (fun acc non =>
       if acc.any (fun x => non.2 == x.2) then acc else non :: acc) []).reverse
@@ -682,7 +682,7 @@ structure Goal where
 
 /-- A conjunction of positioned atomic formulas.
     Mirrors `type Conj = [(Pos, AForm)]`. -/
-abbrev Conj := List (Cpsa2Lean.Lib.Pos × AForm)
+abbrev Conj := List (LeanCPSA.Lib.Pos × AForm)
 
 -- ── AForm ordering ────────────────────────────────────────────────────────────
 
@@ -836,7 +836,7 @@ def fvsConsq (exs : List (List Term × List AForm)) : List Term :=
 structure Rule where
   rlname    : String
   rlgoal    : Goal
-  rlcomment : List (Cpsa2Lean.Lib.SExpr Unit)
+  rlcomment : List (LeanCPSA.Lib.SExpr Unit)
   deriving Repr, Inhabited
 
 -- ── RuleKind ──────────────────────────────────────────────────────────────────
@@ -874,7 +874,7 @@ structure Prot where
   pname          : String
   alg            : String
   pgen           : Gen
-  psig           : Cpsa2Lean.Signature.Sig
+  psig           : LeanCPSA.Signature.Sig
   roles          : List Role
   listenerRole   : Role
   nullaryrules   : List Rule
@@ -883,16 +883,16 @@ structure Prot where
   userrules      : List Rule
   generatedrules : List Rule
   varsAllAtoms   : Bool
-  pcomment       : List (Cpsa2Lean.Lib.SExpr Unit)
+  pcomment       : List (LeanCPSA.Lib.SExpr Unit)
   deriving Repr
 
 /-- Construct a `Prot`, classifying `rules` into the three sublists.
     Mirrors `mkProt :: String -> String -> Gen -> Sig -> [Role] -> Role ->
                        [Rule] -> [Rule] -> [Rule] -> [SExpr ()] -> Prot`. -/
-def mkProt (name alg : String) (gen : Gen) (sig : Cpsa2Lean.Signature.Sig)
+def mkProt (name alg : String) (gen : Gen) (sig : LeanCPSA.Signature.Sig)
     (roleList : List Role) (lrole : Role)
     (allRules written generated : List Rule)
-    (comment : List (Cpsa2Lean.Lib.SExpr Unit)) : Prot :=
+    (comment : List (LeanCPSA.Lib.SExpr Unit)) : Prot :=
   let (nrs, urs, grs) := classifyRules allRules
   { pname          := name,
     alg            := alg,
@@ -932,4 +932,4 @@ def checkForDivergenceInStoreSegments (p : Prot) : Option (String × String × I
       | none     => loop rest
   loop p.roles.reverse
 
-end Cpsa2Lean.Protocol
+end LeanCPSA.Protocol

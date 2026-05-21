@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Algebra
+LeanCPSA.Algebra
 
 Port of CPSA.Algebra (MITRE cpsa v4.4.8).
 
@@ -37,15 +37,15 @@ Naming divergence from Haskell:
   `Sort`  → `ExptSort`   (`Sort` is a Lean universe keyword)
 -/
 
-import Cpsa2Lean.Lib.Utilities
-import Cpsa2Lean.Lib.SExpr
-import Cpsa2Lean.Lib.RBMap
-import Cpsa2Lean.Signature
+import LeanCPSA.Lib.Utilities
+import LeanCPSA.Lib.SExpr
+import LeanCPSA.Lib.RBMap
+import LeanCPSA.Signature
 
-namespace Cpsa2Lean.Algebra
+namespace LeanCPSA.Algebra
 
-open Cpsa2Lean.Lib (SExpr Pos assertError adjoin subset)
-open Cpsa2Lean.Signature (Sig)
+open LeanCPSA.Lib (SExpr Pos assertError adjoin subset)
+open LeanCPSA.Signature (Sig)
 
 -- ── Algebra name constants ────────────────────────────────────────────────────
 
@@ -120,7 +120,7 @@ abbrev Desc := ExptSort × Coef
 /-- An Abelian group element (exponent monomial): a map from `Id`s to
     `(ExptSort, Coef)` pairs.  Represents x₁^c₁ · x₂^c₂ · … · xₙ^cₙ.
     Mirrors `type Group = Map Id Desc`. -/
-abbrev Group := Cpsa2Lean.Lib.RBMap Id Desc
+abbrev Group := LeanCPSA.Lib.RBMap Id Desc
 
 
 -- ── Symbol ───────────────────────────────────────────────────────────────────
@@ -308,22 +308,22 @@ instance : Ord Term where compare := compareTerm
 
 -- ── Group algebraic helpers ───────────────────────────────────────────────────
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- True when `t` represents a single variable (coefficient 1). -/
 def isGroupVar (t : Group) : Bool :=
   size t == 1 && (elems t).head?.map Prod.snd == some 1
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- True when `t` is a single basis variable (ExptSort.Rndx, coefficient 1). -/
 def isBasisVar (t : Group) : Bool :=
   size t == 1 && (elems t).head? == some (.Rndx, 1)
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- True when `t` is a single exponent variable (ExptSort.Expt, coefficient 1). -/
 def isExprVar (t : Group) : Bool :=
   size t == 1 && (elems t).head? == some (.Expt, 1)
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- Extract the single identifier from a group variable.
     Precondition: `isGroupVar t`, `isBasisVar t`, or `isExprVar t`. -/
 def getGroupVar (t : Group) : Id :=
@@ -331,14 +331,14 @@ def getGroupVar (t : Group) : Id :=
   | some x => x
   | none   => assertError "Algebra.getGroupVar: empty group"
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- All single-variable group elements making up `t`. -/
 def groupVarsOfGroup (t : Group) : List Group :=
   foldrWithKey (fun x (s, _) acc => singleton x (s, 1) :: acc) [] t
 
 /-- The singleton group element `{x ↦ (be, 1)}`. -/
 def groupVarG (be : ExptSort) (x : Id) : Group :=
-  Cpsa2Lean.Lib.RBMap.singleton x (be, 1)
+  LeanCPSA.Lib.RBMap.singleton x (be, 1)
 
 /-- Wrap a group variable as a `Term`. -/
 def groupVar (be : ExptSort) (x : Id) : Term :=
@@ -352,19 +352,19 @@ def groupVarGroup (x : Id) : Group :=
 def dMapCoef (f : Coef → Coef) (d : Desc) : Desc :=
   (d.1, f d.2)
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- Negate all coefficients (group inverse). -/
 def invert (t : Group) : Group :=
   map (dMapCoef Int.neg) t
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- Raise `t` to the `n`th power. -/
 def expg (t : Group) (n : Int) : Group :=
   if n == 0 then empty
   else if n == 1 then t
   else map (dMapCoef (n * ·)) t
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- Group multiplication (addition of exponents).
     Mirrors the Haskell `mul` which folds `alter` over one map into the other. -/
 def mul (t t' : Group) : Group :=
@@ -400,21 +400,21 @@ def mInverse (ms : List Maplet) : List Maplet :=
 def isMapletNonzero (m : Maplet) : Bool :=
   m.2.2 != 0
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- Build a `Group` from a list of maplets, dropping zero-coefficient entries. -/
 def group (ms : List Maplet) : Group :=
   fromList (ms.filter isMapletNonzero)
 
 -- ── exprVars and separateVar ──────────────────────────────────────────────────
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- The list of group variables appearing in an exponent term.
     Mirrors `exprVars :: Term -> [Term]`. -/
 def exprVars : Term → List Term
   | .G g => foldlWithKey (fun acc x (s, _) => groupVar s x :: acc) [] g
   | _    => assertError "Algebra.exprVars: not an exponent"
 
-open Cpsa2Lean.Lib.RBMap in
+open LeanCPSA.Lib.RBMap in
 /-- Separate variable `var` from `t`: returns `(singleton_negated, rest)`,
     or `none` if `var` does not appear in `t`.
     Mirrors `separateVar :: Id -> Group -> Maybe (Group, Group)`. -/
@@ -492,16 +492,16 @@ def isObtainedVar : Term → Bool
 -- ── Type aliases and newtypes ─────────────────────────────────────────────────
 
 /-- A map from `Id`s to `Term`s, used for substitutions and environments. -/
-abbrev IdMap := Cpsa2Lean.Lib.RBMap Id Term
+abbrev IdMap := LeanCPSA.Lib.RBMap Id Term
 
-def emptyIdMap : IdMap := Cpsa2Lean.Lib.RBMap.empty
+def emptyIdMap : IdMap := LeanCPSA.Lib.RBMap.empty
 
 /-- An environment tracking variable-to-variable sorts during well-formedness
     checking.  Mirrors `newtype VarEnv = VarEnv (Map Id Term)`. -/
 structure VarEnv where
   map : IdMap
 
-def emptyVarEnv : VarEnv := ⟨Cpsa2Lean.Lib.RBMap.empty⟩
+def emptyVarEnv : VarEnv := ⟨LeanCPSA.Lib.RBMap.empty⟩
 
 /-- A path into a term (list of child indices).
     Mirrors `newtype Place = Place [Int]`. -/
@@ -515,16 +515,16 @@ structure Subst where
   map : IdMap
   deriving Repr
 
-def emptySubst : Subst := ⟨Cpsa2Lean.Lib.RBMap.empty⟩
+def emptySubst : Subst := ⟨LeanCPSA.Lib.RBMap.empty⟩
 
 /-- A matching environment: a set of generated variable identifiers plus
     an `IdMap`.  Mirrors `newtype Env = Env (Set Id, IdMap)`. -/
 structure Env where
-  vars : Cpsa2Lean.Lib.RBSet Id
+  vars : LeanCPSA.Lib.RBSet Id
   map  : IdMap
   deriving Repr
 
-def emptyEnv : Env := ⟨Lean.RBMap.empty, Cpsa2Lean.Lib.RBMap.empty⟩
+def emptyEnv : Env := ⟨Lean.RBMap.empty, LeanCPSA.Lib.RBMap.empty⟩
 
 private def eqIdMap (m m' : IdMap) : Bool :=
   Lean.RBMap.toList m == Lean.RBMap.toList m'
@@ -532,10 +532,10 @@ private def eqIdMap (m m' : IdMap) : Bool :=
 instance : BEq IdMap where beq := eqIdMap
 instance : BEq Subst  where beq s s' := s.map == s'.map
 
-private def eqRBSetId (s s' : Cpsa2Lean.Lib.RBSet Id) : Bool :=
+private def eqRBSetId (s s' : LeanCPSA.Lib.RBSet Id) : Bool :=
   Lean.RBMap.toList s == Lean.RBMap.toList s'
 
-instance : BEq (Cpsa2Lean.Lib.RBSet Id) where beq := eqRBSetId
+instance : BEq (LeanCPSA.Lib.RBSet Id) where beq := eqRBSetId
 instance : BEq Env    where beq e e' := e.vars == e'.vars && e.map == e'.map
 
 instance : Inhabited Env := ⟨emptyEnv⟩
@@ -577,7 +577,7 @@ def mkDecis : Decision Id := ⟨[], []⟩
     Panics if the key maps to a non-`G` term.
     Mirrors `groupLookup :: IdMap -> Sort -> Id -> Group`. -/
 def groupLookup (subst : IdMap) (be : ExptSort) (x : Id) : Group :=
-  match Cpsa2Lean.Lib.RBMap.findWithDefault (.G (groupVarG be x)) x subst with
+  match LeanCPSA.Lib.RBMap.findWithDefault (.G (groupVarG be x)) x subst with
   | .G t => t
   | _    => assertError s!"Algebra.groupLookup: Bad substitution for {idName x}"
 
@@ -592,7 +592,7 @@ mutual
       Mirrors `idSubst :: IdMap -> Term -> Term`. -/
   private partial def idSubst (subst : IdMap) : Term → Term
     | .F .Exp []         => assertError "Algebra.idSubst: Bad exponentiation"
-    | .I x               => Cpsa2Lean.Lib.RBMap.findWithDefault (.I x) x subst
+    | .I x               => LeanCPSA.Lib.RBMap.findWithDefault (.I x) x subst
     | t@(.C _)           => t
     | .F (.Invk op) [t]  =>
         match idSubst subst t with
@@ -607,9 +607,9 @@ mutual
         | t0' => expSubst subst t0' t1
     | .F s u             => .F s (u.map (idSubst subst))
     | .G t               => .G (groupSubst subst t)
-    | .D x               => Cpsa2Lean.Lib.RBMap.findWithDefault (.D x) x subst
+    | .D x               => LeanCPSA.Lib.RBMap.findWithDefault (.D x) x subst
     | t@(.Z _)           => t
-    | .X x               => Cpsa2Lean.Lib.RBMap.findWithDefault (.X x) x subst
+    | .X x               => LeanCPSA.Lib.RBMap.findWithDefault (.X x) x subst
     | t@(.Y _)           => t
 
   /-- Substitute into an exponent and apply `exp(g, one) = g`.
@@ -622,7 +622,7 @@ mutual
   /-- Apply an `IdMap` substitution to every variable in a group element.
       Mirrors `groupSubst :: IdMap -> Group -> Group`. -/
   private partial def groupSubst (subst : IdMap) (t : Group) : Group :=
-    Cpsa2Lean.Lib.RBMap.foldrWithKey
+    LeanCPSA.Lib.RBMap.foldrWithKey
       (fun x (be, c) acc => mul (expg (groupLookup subst be x) c) acc)
       Lean.RBMap.empty t
 
@@ -631,71 +631,71 @@ end
 /-- True when every variable in `t` is a key in `subst`.
     Mirrors `idMapped :: IdMap -> Term -> Bool`. -/
 partial def idMapped (subst : IdMap) : Term → Bool
-  | .I x    => Cpsa2Lean.Lib.RBMap.member x subst
+  | .I x    => LeanCPSA.Lib.RBMap.member x subst
   | .C _    => true
   | .F _ u  => u.all (idMapped subst)
-  | .G t    => (Cpsa2Lean.Lib.RBMap.keys t).all (Cpsa2Lean.Lib.RBMap.member · subst)
-  | .D x    => Cpsa2Lean.Lib.RBMap.member x subst
+  | .G t    => (LeanCPSA.Lib.RBMap.keys t).all (LeanCPSA.Lib.RBMap.member · subst)
+  | .D x    => LeanCPSA.Lib.RBMap.member x subst
   | .Z _    => true
-  | .X x    => Cpsa2Lean.Lib.RBMap.member x subst
+  | .X x    => LeanCPSA.Lib.RBMap.member x subst
   | .Y _    => true
 
 /-- Variables in `t` whose identifier is NOT a key in `m`.
     Mirrors `idUnmapped :: IdMap -> Term -> [Term]`. -/
 partial def idUnmapped (m : IdMap) : Term → List Term
   | .I x =>
-      if Cpsa2Lean.Lib.RBMap.member x m then [] else [.I x]
+      if LeanCPSA.Lib.RBMap.member x m then [] else [.I x]
   | .D x =>
-      if Cpsa2Lean.Lib.RBMap.member x m then [] else [.D x]
+      if LeanCPSA.Lib.RBMap.member x m then [] else [.D x]
   | .X x =>
-      if Cpsa2Lean.Lib.RBMap.member x m then [] else [.X x]
+      if LeanCPSA.Lib.RBMap.member x m then [] else [.X x]
   | .C _ | .Z _ | .Y _ => []
   | .G t =>
       (groupVarsOfGroup t).filter
-        (fun g => !Cpsa2Lean.Lib.RBMap.member (getGroupVar g) m)
+        (fun g => !LeanCPSA.Lib.RBMap.member (getGroupVar g) m)
       |>.map .G
   | t@(.F s [.I x]) =>
       if varSym s then
-        if Cpsa2Lean.Lib.RBMap.member x m then [] else [t]
+        if LeanCPSA.Lib.RBMap.member x m then [] else [t]
       else idUnmapped m (.I x)
   | .F (.Akey str) [.F (.Invk _) [.I x]] =>
-      if Cpsa2Lean.Lib.RBMap.member x m then []
+      if LeanCPSA.Lib.RBMap.member x m then []
       else [.F (.Akey str) [.I x]]
   | .F _ u => u.flatMap (idUnmapped m)
 
 /-- The domain of an `IdMap` as a list of keys.
     Mirrors `idMapDomain :: IdMap -> [Id]`. -/
 def idMapDomain (m : IdMap) : List Id :=
-  Cpsa2Lean.Lib.RBMap.foldrWithKey (fun k _ ks => k :: ks) [] m
+  LeanCPSA.Lib.RBMap.foldrWithKey (fun k _ ks => k :: ks) [] m
 
 -- Not currently used in the CPSA source (commented out in Algebra.hs),
 -- but preserved to match the Haskell comment "let's not wipe them out".
 
 /-- True when `m1` is a sub-function of `m2` (same domain entries, same values). -/
 private def idMapExtendsTo (m1 m2 : IdMap) : Bool :=
-  Cpsa2Lean.Lib.RBMap.foldrWithKey
+  LeanCPSA.Lib.RBMap.foldrWithKey
     (fun key val acc =>
       acc &&
-      match Cpsa2Lean.Lib.RBMap.lookup key m2 with
+      match LeanCPSA.Lib.RBMap.lookup key m2 with
       | some v => val == v
       | none   => false)
     true m1
 
 /-- Identifiers that are in the domain of `m1` but not `m2`. -/
 private def idMapDomainMinus (m1 m2 : IdMap) : List Id :=
-  Cpsa2Lean.Lib.RBMap.foldrWithKey
+  LeanCPSA.Lib.RBMap.foldrWithKey
     (fun key _ acc =>
-      if Cpsa2Lean.Lib.RBMap.member key m2 then acc else key :: acc)
+      if LeanCPSA.Lib.RBMap.member key m2 then acc else key :: acc)
     [] m1
 
 /-- True when `m1` is a sub-function of `m2` ignoring keys in `ids`.
     Mirrors `idMapExtendsOutside :: IdMap -> IdMap -> [Id] -> Bool`. -/
 def idMapExtendsOutside (m1 m2 : IdMap) (ids : List Id) : Bool :=
-  Cpsa2Lean.Lib.RBMap.foldrWithKey
+  LeanCPSA.Lib.RBMap.foldrWithKey
     (fun key val acc =>
       acc &&
       (ids.contains key ||
-        match Cpsa2Lean.Lib.RBMap.lookup key m2 with
+        match LeanCPSA.Lib.RBMap.lookup key m2 with
         | some v => val == v
         | none   => false))
     true m1
@@ -721,7 +721,7 @@ def substDomain (s : Subst) : List Id :=
     in `vars`.  Each term in `vars` is assumed to be a variable.
     Mirrors `substDomainWithin :: Subst -> [Term] -> Bool`. -/
 def substDomainWithin (s : Subst) (vars : List Term) : Bool :=
-  Cpsa2Lean.Lib.subset (substDomain s) (vars.map varId)
+  LeanCPSA.Lib.subset (substDomain s) (vars.map varId)
 
 /-- True when `f` holds for every `Id` that appears as a leaf variable in `t`.
     Mirrors `allId :: (Id -> Bool) -> Term -> Bool`. -/
@@ -729,7 +729,7 @@ partial def allId (f : Id → Bool) : Term → Bool
   | .I x   => f x
   | .C _   => true
   | .F _ u => u.all (allId f)
-  | .G g   => (Cpsa2Lean.Lib.RBMap.keys g).all f
+  | .G g   => (LeanCPSA.Lib.RBMap.keys g).all f
   | .D x   => f x
   | .Z _   => true
   | .X x   => f x
@@ -738,8 +738,8 @@ partial def allId (f : Id → Bool) : Term → Bool
 /-- True when the domain of `s` is disjoint from the variables in `ts`.
     Mirrors `disjointDom :: Subst -> [Term] -> Bool`. -/
 def disjointDom (s : Subst) (ts : List Term) : Bool :=
-  let ks := Cpsa2Lean.Lib.RBMap.keysSet s.map
-  ts.all (allId (fun x => Cpsa2Lean.Lib.RBSet.notMember x ks))
+  let ks := LeanCPSA.Lib.RBMap.keysSet s.map
+  ts.all (allId (fun x => LeanCPSA.Lib.RBSet.notMember x ks))
 
 /-- True when `t` is NOT a trivial identity binding for `x`.
     Mirrors `nonTrivialBinding :: Id -> Term -> Bool`. -/
@@ -752,11 +752,11 @@ private def nonTrivialBinding (x : Id) : Term → Bool
     Mirrors `compose :: Subst -> Subst -> Subst`. -/
 def compose (s0 s1 : Subst) : Subst :=
   -- Step 1: apply s0 to the range of s1
-  let s2 := Cpsa2Lean.Lib.RBMap.map (substitute s0) s1.map
+  let s2 := LeanCPSA.Lib.RBMap.map (substitute s0) s1.map
   -- Step 3: drop trivial bindings from s2
-  let s4 := Cpsa2Lean.Lib.RBMap.filterWithKey nonTrivialBinding s2
+  let s4 := LeanCPSA.Lib.RBMap.filterWithKey nonTrivialBinding s2
   -- Steps 2 & 4: left-biased union (s0 dominates where domains overlap)
-  ⟨Cpsa2Lean.Lib.RBMap.union s4 s0.map⟩
+  ⟨LeanCPSA.Lib.RBMap.union s4 s0.map⟩
 
 /-- If `t` is a group variable, return a substitution mapping it to the
     group identity (the empty group / "one").  Otherwise `none`.
@@ -764,8 +764,8 @@ def compose (s0 s1 : Subst) : Subst :=
 def destroyer : Term → Option Subst
   | t@(.G m) =>
       if isVar t then
-        match (Cpsa2Lean.Lib.RBMap.keys m).head? with
-        | some x => some ⟨Cpsa2Lean.Lib.RBMap.singleton x (.G Lean.RBMap.empty)⟩
+        match (LeanCPSA.Lib.RBMap.keys m).head? with
+        | some x => some ⟨LeanCPSA.Lib.RBMap.singleton x (.G Lean.RBMap.empty)⟩
         | none   => assertError "Algebra.destroyer: isVar but empty group"
       else none
   | _ => none
@@ -776,7 +776,7 @@ def destroyer : Term → Option Subst
 -- ── Stage 3: Term analysis + well-formedness ──────────────────────────────────
 
 /-- Ordered set of terms. -/
-abbrev TermSet := Cpsa2Lean.Lib.RBSet Term
+abbrev TermSet := LeanCPSA.Lib.RBSet Term
 
 -- ── Well-formedness ───────────────────────────────────────────────────────────
 
@@ -784,8 +784,8 @@ abbrev TermSet := Cpsa2Lean.Lib.RBSet Term
     binding for `x` is consistent.
     Mirrors `extendVarEnv :: VarEnv -> Id -> Term -> Maybe VarEnv`. -/
 def extendVarEnv (xts : VarEnv) (x : Id) (t : Term) : Option VarEnv :=
-  match Cpsa2Lean.Lib.RBMap.lookup x xts.map with
-  | none    => some ⟨Cpsa2Lean.Lib.RBMap.insert x t xts.map⟩
+  match LeanCPSA.Lib.RBMap.lookup x xts.map with
+  | none    => some ⟨LeanCPSA.Lib.RBMap.insert x t xts.map⟩
   | some t' => if t == t' then some xts else none
 
 -- `termWellFormed` and `baseVarEnv` are mutually recursive:
@@ -823,7 +823,7 @@ mutual
     | t@(.F .Pval [.I x])  => extendVarEnv xts x t
     | .F .Base [t]         => baseVarEnv xts t
     | .G t                 =>
-        (Cpsa2Lean.Lib.RBMap.assocs t).foldlM
+        (LeanCPSA.Lib.RBMap.assocs t).foldlM
           (fun xts' (x, (be, _)) => extendVarEnv xts' x (groupVar be x))
           xts
     | .C _                 => some xts
@@ -894,8 +894,8 @@ def isNum : Term → Bool
 /-- The set of numeric sub-terms of `t`.
     Mirrors `subNums :: Term -> Set Term`. -/
 partial def subNums : Term → TermSet
-  | t@(.G _)  => Cpsa2Lean.Lib.RBSet.singleton t
-  | .F _ ts   => Cpsa2Lean.Lib.RBSet.unions (ts.map subNums)
+  | t@(.G _)  => LeanCPSA.Lib.RBSet.singleton t
+  | .F _ ts   => LeanCPSA.Lib.RBSet.unions (ts.map subNums)
   | _         => Lean.RBMap.empty
 
 -- ── Occurrence / subterm ──────────────────────────────────────────────────────
@@ -909,8 +909,8 @@ partial def subterm (needle : Term) : Term → Bool
     else match haystack with
     | .F _ u   => u.any (subterm needle)
     | .G t'    => match needle with
-        | .I x => Cpsa2Lean.Lib.RBMap.member x t'
-        | .G t => isGroupVar t && Cpsa2Lean.Lib.RBMap.member (getGroupVar t) t'
+        | .I x => LeanCPSA.Lib.RBMap.member x t'
+        | .G t => isGroupVar t && LeanCPSA.Lib.RBMap.member (getGroupVar t) t'
         | _    => false
     | _ => false
 
@@ -950,7 +950,7 @@ mutual
     | t@(.F .Locn [.I _])                            => f acc t
     | .F .Base [t]                                   => baseAddVars f acc t
     | .G t                                           =>
-        Cpsa2Lean.Lib.RBMap.foldlWithKey
+        LeanCPSA.Lib.RBMap.foldlWithKey
           (fun acc' x (be, _) => f acc' (groupVar be x))
           acc t
     | .C _                                           => acc
@@ -1024,9 +1024,9 @@ private partial def encryptionsHelper :
   | .F (.Tupl _) ts, acc =>
       ts.foldl (fun a b => encryptionsHelper b a) acc
   | t@(.F (.Enc _) [t', t'']), acc =>
-      encryptionsHelper t' (Cpsa2Lean.Lib.adjoin (t, [t'']) acc)
+      encryptionsHelper t' (LeanCPSA.Lib.adjoin (t, [t'']) acc)
   | t@(.F (.Hash _) [t']), acc =>
-      Cpsa2Lean.Lib.adjoin (t, [t']) acc
+      LeanCPSA.Lib.adjoin (t, [t']) acc
   | _, acc => acc
 
 /-- Every encryption (and hash) carried by `t`, paired with its key.
@@ -1039,8 +1039,8 @@ def encryptions (t : Term) : List (Term × List Term) :=
 /-- Identifiers of exponent variables in the unguessable set (approximation).
     Mirrors `getRndxOrigAssumptions :: Set Term -> [Id]`. -/
 def getRndxOrigAssumptions (terms : TermSet) : List Id :=
-  (Cpsa2Lean.Lib.RBSet.elems terms).flatMap fun
-    | .G t => Cpsa2Lean.Lib.RBMap.keys t
+  (LeanCPSA.Lib.RBSet.elems terms).flatMap fun
+    | .G t => LeanCPSA.Lib.RBMap.keys t
     | _    => []
 
 /-- Collapse nested `exp` applications into a single `exp`.
@@ -1072,7 +1072,7 @@ private def eqGroup (g g' : Group) : Bool :=
     Mirrors `indicator :: Set Term -> Term -> Group`. -/
 private def indicator (avoid : TermSet) (t : Term) : Group :=
   let basisGroups : List Group :=
-    (Cpsa2Lean.Lib.RBSet.elems avoid).filterMap fun
+    (LeanCPSA.Lib.RBSet.elems avoid).filterMap fun
       | .G g => if isBasisVar g then some g else none
       | _    => none
   let indicatorBasis := basisGroups.foldl mul Lean.RBMap.empty
@@ -1080,7 +1080,7 @@ private def indicator (avoid : TermSet) (t : Term) : Group :=
   | .F .Base [.F .Genr _]        => Lean.RBMap.empty
   | .F .Base [.I _]              => Lean.RBMap.empty
   | .F .Base [.F .Exp [_, .G m]] =>
-      Cpsa2Lean.Lib.RBMap.intersection m indicatorBasis
+      LeanCPSA.Lib.RBMap.intersection m indicatorBasis
   | _ => assertError "Algebra.indicator: expCollapse returned non-base element"
 
 /-- True when `t1` and `t2` have the same indicator relative to `avoid`.
@@ -1098,26 +1098,26 @@ mutual
     | .C _              => true
     | .F (.Tupl _) ts   => ts.all (buildable' knowns unguessable)
     | t@(.F (.Enc _) [t0, t1]) =>
-        Cpsa2Lean.Lib.RBSet.member t knowns ||
+        LeanCPSA.Lib.RBSet.member t knowns ||
         buildable' knowns unguessable t0 && buildable' knowns unguessable t1
     | t@(.F (.Hash _) [t1]) =>
-        Cpsa2Lean.Lib.RBSet.member t knowns || buildable' knowns unguessable t1
+        LeanCPSA.Lib.RBSet.member t knowns || buildable' knowns unguessable t1
     | t@(.F .Base _)    => buildableBase knowns unguessable t
     | .G t1             => buildableExpt unguessable t1
-    | t                 => isAtom t && !Cpsa2Lean.Lib.RBSet.member t unguessable
+    | t                 => isAtom t && !LeanCPSA.Lib.RBSet.member t unguessable
 
   private partial def buildableBase (knowns unguessable : TermSet) : Term → Bool
     | .F .Base [.I _]         => true
     | .F .Base [.F .Genr _]   => true
     | t@(.F .Base [.F .Exp [t0, .G t1]]) =>
-        (Cpsa2Lean.Lib.RBSet.elems knowns).any
+        (LeanCPSA.Lib.RBSet.elems knowns).any
           (fun t2 => getBase t2 == t0 && relevant unguessable t2 t)
         || buildableBase knowns unguessable (.F .Base [t0]) && buildableExpt unguessable t1
     | _ => false
 
   private partial def buildableExpt (unguessable : TermSet) (exp : Group) : Bool :=
     let ids := getRndxOrigAssumptions unguessable
-    (Cpsa2Lean.Lib.RBMap.keys exp).all (fun x => !ids.contains x)
+    (LeanCPSA.Lib.RBMap.keys exp).all (fun x => !ids.contains x)
 
 end
 
@@ -1140,9 +1140,9 @@ private partial def decomposeLoop
   match todo with
   | [] =>
       if Lean.RBMap.toList old == Lean.RBMap.toList ks then (ks, ug)
-      else decomposeLoop ug ks ks (Cpsa2Lean.Lib.RBSet.elems ks)
+      else decomposeLoop ug ks ks (LeanCPSA.Lib.RBSet.elems ks)
   | t@(.F (.Tupl _) _) :: rest =>
-      decomposeLoop ug (decat t (Cpsa2Lean.Lib.RBSet.delete t ks)) old rest
+      decomposeLoop ug (decat t (LeanCPSA.Lib.RBSet.delete t ks)) old rest
   | .F (.Enc _) [t0, t1] :: rest =>
       if buildable ks ug (inv t1) then
         decomposeLoop ug (decat t0 ks) old rest
@@ -1153,14 +1153,14 @@ private partial def decomposeLoop
   | .F .Base [.F .Exp [_, _]] :: rest =>
       decomposeLoop ug ks old rest
   | t@(.G _) :: rest =>
-      if Cpsa2Lean.Lib.RBSet.notMember t ug then
+      if LeanCPSA.Lib.RBSet.notMember t ug then
         decomposeLoop ug ks old rest
       else
         decomposeLoop
-          (Cpsa2Lean.Lib.RBSet.delete t ug) (Cpsa2Lean.Lib.RBSet.delete t ks) old rest
+          (LeanCPSA.Lib.RBSet.delete t ug) (LeanCPSA.Lib.RBSet.delete t ks) old rest
   | t :: rest =>
       decomposeLoop
-        (Cpsa2Lean.Lib.RBSet.delete t ug) (Cpsa2Lean.Lib.RBSet.delete t ks) old rest
+        (LeanCPSA.Lib.RBSet.delete t ug) (LeanCPSA.Lib.RBSet.delete t ks) old rest
 
 /-- Iteratively decompose `knowns` given `unguessable` atoms.
     Returns the final `(knowns, unguessable)` pair.
@@ -1172,7 +1172,7 @@ def decompose (knowns unguessable : TermSet) : TermSet × TermSet :=
     Mirrors `escapeSet :: Set Term -> Set Term -> Term -> Maybe (Set Term)`. -/
 def escapeSet (ts a : TermSet) (ct : Term) : Option TermSet :=
   if buildable ts a ct then none
-  else some (Cpsa2Lean.Lib.RBSet.filter
+  else some (LeanCPSA.Lib.RBSet.filter
     (fun t => match t with
       | .F (.Enc _) [body, key] => carriedBy ct body && !buildable ts a (inv key)
       | _                       => false)
@@ -1229,7 +1229,7 @@ partial def places (var source : Term) : List Place :=
     if var == t then ⟨path.reverse⟩ :: paths
     else match t with
     | .F _ u =>
-      (Cpsa2Lean.Lib.enum u).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
+      (LeanCPSA.Lib.enum u).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
     | .G g =>
         if Lean.RBMap.contains g (varId var)
         then ⟨path.reverse⟩ :: paths
@@ -1245,7 +1245,7 @@ partial def carriedPlaces (target source : Term) : List Place :=
     if target == t then ⟨path.reverse⟩ :: paths
     else match t with
     | .F (.Tupl _) ts =>
-      (Cpsa2Lean.Lib.enum ts).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
+      (LeanCPSA.Lib.enum ts).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
     | .F (.Enc _) [t0, _] => f paths (0 :: path) t0
     | _ => paths
   f [] [] source
@@ -1257,7 +1257,7 @@ partial def carriedRelPlaces (target source : Term) (avoid : TermSet) : List Pla
     if relevant avoid t target then ⟨path.reverse⟩ :: paths
     else match t with
     | .F (.Tupl _) ts =>
-      (Cpsa2Lean.Lib.enum ts).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
+      (LeanCPSA.Lib.enum ts).foldl (fun ps (i, ti) => f ps ((i : Int) :: path) ti) paths
     | .F (.Enc _) [t0, _] => f paths (0 :: path) t0
     | _ => paths
   f [] [] source
@@ -1269,8 +1269,8 @@ def replace (var : Term) (pl : Place) (source : Term) : Term :=
     | [],        _      => var
     | i :: path, .F s u =>
         let n := i.toNat
-        match Cpsa2Lean.Lib.maybeNth u n with
-        | some ti => .F s (Cpsa2Lean.Lib.replaceNth (loop path ti) n u)
+        match LeanCPSA.Lib.maybeNth u n with
+        | some ti => .F s (LeanCPSA.Lib.replaceNth (loop path ti) n u)
         | none    => assertError "Algebra.replace: Bad path to term"
     | _,         _      => assertError "Algebra.replace: Bad path to term"
   loop pl.path source
@@ -1280,7 +1280,7 @@ def replace (var : Term) (pl : Place) (source : Term) : Term :=
     negative `n` → `|n|` copies of `(x, (be, -1))`.
     Mirrors `factors :: Group -> [Maplet]`. -/
 def factors (t : Group) : List Maplet :=
-  Cpsa2Lean.Lib.RBMap.foldrWithKey
+  LeanCPSA.Lib.RBMap.foldrWithKey
     (fun x (be, n) acc =>
       if n >= 0
       then List.replicate n.toNat (x, (be, 1)) ++ acc
@@ -1293,7 +1293,7 @@ def ancestors (source : Term) (pl : Place) : List Term :=
   let rec loop (ts : List Term) : List Int → Term → List Term
     | [],        _           => ts
     | i :: path, t@(.F _ u) =>
-        match Cpsa2Lean.Lib.maybeNth u i.toNat with
+        match LeanCPSA.Lib.maybeNth u i.toNat with
         | some t' => loop (t :: ts) path t'
         | none    => assertError "Algebra.ancestors: Bad path to term"
     | [_],       t@(.G _)   => t :: ts
@@ -1340,7 +1340,7 @@ partial def clone (gen : Gen) (t : Term) : Gen × Term :=
         (alist', gen', .F sym uRev.reverse)
     | .G g =>
         let (alist', gen', msRev) :=
-          Cpsa2Lean.Lib.RBMap.foldlWithKey
+          LeanCPSA.Lib.RBMap.foldlWithKey
             (fun (al, ge, ms) x (be, n) =>
               match List.lookup x al with
               | some y => (al, ge, (y, (be, n)) :: ms)
@@ -1407,7 +1407,7 @@ def baseRndx : Term → Option (List Term)
           | []                        => some acc
           | (_, (.Expt, _)) :: _     => none
           | (id, (.Rndx, _)) :: rest => loop (baseBuild g id :: acc) rest
-        loop [] (Cpsa2Lean.Lib.RBMap.assocs g)
+        loop [] (LeanCPSA.Lib.RBMap.assocs g)
       else none
   | _ => none
 
@@ -1418,7 +1418,7 @@ mutual
       group variable with its looked-up group (or itself if absent).
       Mirrors `chaseGroup :: IdMap -> Group -> Group`. -/
   private partial def chaseGroup (s : IdMap) (t : Group) : Group :=
-    Cpsa2Lean.Lib.RBMap.foldrWithKey
+    LeanCPSA.Lib.RBMap.foldrWithKey
       (fun x (be, c) acc => mul (expg (chaseGroupLookup s be x) c) acc)
       Lean.RBMap.empty t
 
@@ -1426,7 +1426,7 @@ mutual
       otherwise return the singleton group `{x ↦ (be, 1)}`.
       Mirrors `chaseGroupLookup :: IdMap -> Sort -> Id -> Group`. -/
   private partial def chaseGroupLookup (s : IdMap) (be : ExptSort) (x : Id) : Group :=
-    match Cpsa2Lean.Lib.RBMap.lookup x s with
+    match LeanCPSA.Lib.RBMap.lookup x s with
     | none       => groupVarG be x
     | some (.G t) => chaseGroup s t
     | some _     => assertError "Algebra.chaseGroupLookup: Bad substitution"
@@ -1443,11 +1443,11 @@ mutual
       Mirrors `chase :: Subst -> Term -> Term`. -/
   partial def chase (s : Subst) : Term → Term
     | .I x =>
-        match Cpsa2Lean.Lib.RBMap.lookup x s.map with
+        match LeanCPSA.Lib.RBMap.lookup x s.map with
         | none   => .I x
         | some t => chase s t
     | .D x =>
-        match Cpsa2Lean.Lib.RBMap.lookup x s.map with
+        match LeanCPSA.Lib.RBMap.lookup x s.map with
         | none   => .D x
         | some t => chase s t
     | .F (.Invk op) [t]    => chaseInvk s op t
@@ -1459,7 +1459,7 @@ mutual
       Mirrors `chaseInvk :: Subst -> String -> Term -> Term`. -/
   private partial def chaseInvk (s : Subst) (op : String) : Term → Term
     | .I x =>
-        match Cpsa2Lean.Lib.RBMap.lookup x s.map with
+        match LeanCPSA.Lib.RBMap.lookup x s.map with
         | none   => .F (.Invk op) [.I x]
         | some t => chaseInvk s op t
     | .F (.Invk _) [t] => chase s t
@@ -1507,7 +1507,7 @@ partial def substChase (subst : Subst) : Term → Term
 /-- Apply `substChase` to every value in the range of `s`.
     Mirrors `chaseMap :: Subst -> Subst`. -/
 def chaseMap (s : Subst) : Subst :=
-  ⟨Cpsa2Lean.Lib.RBMap.map (substChase s) s.map⟩
+  ⟨LeanCPSA.Lib.RBMap.map (substChase s) s.map⟩
 
 -- ── Stage 4B: Environment operations ─────────────────────────────────────────
 
@@ -1542,7 +1542,7 @@ def envOfParamVarPairs (pairs : List (Term × Term)) : Env :=
   pairs.foldl
     (fun e (p, v) =>
       if idMapped e.map p then e
-      else { e with map := Cpsa2Lean.Lib.RBMap.insert (varId p) v e.map })
+      else { e with map := LeanCPSA.Lib.RBMap.insert (varId p) v e.map })
     emptyEnv
 
 /-- Build an environment that maps each variable to itself.
@@ -1553,7 +1553,7 @@ def envIdentityOnVars (vars : List Term) : Env :=
 /-- True when every strand value in the range of `e` is within `strands`.
     Mirrors `envStrandsWithin :: Env -> [Int] -> Bool`. -/
 def envStrandsWithin (e : Env) (strands : List Int) : Bool :=
-  Cpsa2Lean.Lib.RBMap.foldr
+  LeanCPSA.Lib.RBMap.foldr
     (fun t acc =>
       match t with
       | .Z i => acc && strands.contains i
@@ -1566,12 +1566,12 @@ def envStrandsWithin (e : Env) (strands : List Int) : Bool :=
 def envDisjointExtension (e1 e2 : Env) : Bool :=
   let d1 := idMapDomain e1.map
   let d2 := idMapDomain e2.map
-  Cpsa2Lean.Lib.subset d1 d2 && idMapsAgreeOutside e1.map e2.map d1
+  LeanCPSA.Lib.subset d1 d2 && idMapsAgreeOutside e1.map e2.map d1
 
 /-- Apply substitution `s` to every term in the range of `e`.
     Mirrors `substUpdate :: Env -> Subst -> Env`. -/
 def substUpdate (e : Env) (s : Subst) : Env :=
-  { e with map := Cpsa2Lean.Lib.RBMap.map (substitute s) e.map }
+  { e with map := LeanCPSA.Lib.RBMap.map (substitute s) e.map }
 
 /-- True when every id in `e.vars` and every key and value-id in `e.map`
     was generated before `gen`.
@@ -1581,7 +1581,7 @@ partial def checkGenTerm (g : Int) : Term → Bool
   | .C _  => true
   | .F _ xs => xs.all (checkGenTerm g)
   | .G t  =>
-      Cpsa2Lean.Lib.RBMap.foldlWithKey
+      LeanCPSA.Lib.RBMap.foldlWithKey
         (fun acc x _ => acc && g > x.num)
         true t
   | _     => true
@@ -1589,8 +1589,8 @@ partial def checkGenTerm (g : Int) : Term → Bool
 def checkGenEnv (ge : GenEnv) : Bool :=
   let (g, e) := ge
   let gn := g.counter
-  (Cpsa2Lean.Lib.RBSet.toList e.vars |>.all (fun x => gn > x.num)) &&
-  (Cpsa2Lean.Lib.RBMap.assocs e.map |>.all (fun (x, t) =>
+  (LeanCPSA.Lib.RBSet.toList e.vars |>.all (fun x => gn > x.num)) &&
+  (LeanCPSA.Lib.RBMap.assocs e.map |>.all (fun (x, t) =>
     gn > x.num && checkGenTerm gn t))
 
 def validateGenEnv (ge : GenEnv) : GenEnv :=
@@ -1600,12 +1600,12 @@ def validateGenEnv (ge : GenEnv) : GenEnv :=
 /-- Cast an environment into a substitution by filtering trivial bindings.
     Mirrors `substitution :: Env -> Subst`. -/
 def substitution (e : Env) : Subst :=
-  ⟨Cpsa2Lean.Lib.RBMap.filterWithKey nonTrivialBinding e.map⟩
+  ⟨LeanCPSA.Lib.RBMap.filterWithKey nonTrivialBinding e.map⟩
 
 /-- Find the smallest strand index `i+1` such that `Z i` appears in `e`.
     Mirrors `strandBoundEnv :: Env -> Int`. -/
 def strandBoundEnv (e : Env) : Int :=
-  Cpsa2Lean.Lib.RBMap.foldl
+  LeanCPSA.Lib.RBMap.foldl
     (fun bnd t => match t with | .Z i => max bnd (i + 1) | _ => bnd)
     0 e.map
 
@@ -1615,9 +1615,9 @@ def strandBoundEnv (e : Env) : Int :=
     Mirrors `merge :: Group -> Group -> IdMap -> (Group, Group)`. -/
 def mergeGroups (t t' : Group) (r : IdMap) : Group × Group :=
   let (rawLHS, rhs) :=
-    Cpsa2Lean.Lib.RBMap.foldlWithKey
+    LeanCPSA.Lib.RBMap.foldlWithKey
       (fun (lhsAcc, rhsAcc) x (be, c) =>
-        match Cpsa2Lean.Lib.RBMap.lookup x r with
+        match LeanCPSA.Lib.RBMap.lookup x r with
         | none        => ((x, (be, c)) :: lhsAcc, rhsAcc)
         | some (.G g) => (lhsAcc, mul (expg g (-c)) rhsAcc)
         | some _      => assertError "Algebra.merge: expecting a group")
@@ -1627,39 +1627,39 @@ def mergeGroups (t t' : Group) (r : IdMap) : Group × Group :=
 /-- For each non-freshly-generated variable in `t`, create a clone and
     add a mapping from old → new.
     Mirrors `genVars :: Set Id -> Gen -> Group -> IdMap -> (Set Id, Gen, IdMap)`. -/
-def genVars (v : Cpsa2Lean.Lib.RBSet Id) (g : Gen) (t : Group) (r : IdMap)
-    : Cpsa2Lean.Lib.RBSet Id × Gen × IdMap :=
-  Cpsa2Lean.Lib.RBMap.foldlWithKey
+def genVars (v : LeanCPSA.Lib.RBSet Id) (g : Gen) (t : Group) (r : IdMap)
+    : LeanCPSA.Lib.RBSet Id × Gen × IdMap :=
+  LeanCPSA.Lib.RBMap.foldlWithKey
     (fun (v', g', r') x (be, _) =>
-      if Cpsa2Lean.Lib.RBSet.member x v' then (v', g', r')
+      if LeanCPSA.Lib.RBSet.member x v' then (v', g', r')
       else
         let (g'', x') := cloneId g' x
-        (Cpsa2Lean.Lib.RBSet.insert x' v', g'',
-         Cpsa2Lean.Lib.RBMap.insert x (groupVar be x') r'))
+        (LeanCPSA.Lib.RBSet.insert x' v', g'',
+         LeanCPSA.Lib.RBMap.insert x (groupVar be x') r'))
     (v, g, r) t
 
 /-- Build an initial decision set that keeps all non-fresh `Rndx`
     variables in `t` distinct.
     Mirrors `mkInitMatchDecis :: Set Id -> Group -> Decision Id`. -/
-def mkInitMatchDecis (vs : Cpsa2Lean.Lib.RBSet Id) (t : Group) : Decision Id :=
-  let v := (Cpsa2Lean.Lib.RBMap.assocs t).filterMap
+def mkInitMatchDecis (vs : LeanCPSA.Lib.RBSet Id) (t : Group) : Decision Id :=
+  let v := (LeanCPSA.Lib.RBMap.assocs t).filterMap
     (fun (x, (be, _)) =>
-      if be == .Rndx && !Cpsa2Lean.Lib.RBSet.member x vs then some x else none)
+      if be == .Rndx && !LeanCPSA.Lib.RBSet.member x vs then some x else none)
   { mkDecis with
     dist := v.flatMap (fun x =>
       v.filterMap (fun y => if x != y then some (x, y) else none)) }
 
 /-- Split `t0` and `t1` into variable and constant parts.
     Mirrors `partition :: Group -> Group -> Set Id -> ([Maplet], [Maplet])`. -/
-def groupPartition (t0 t1 : Group) (v : Cpsa2Lean.Lib.RBSet Id)
+def groupPartition (t0 t1 : Group) (v : LeanCPSA.Lib.RBSet Id)
     : List Maplet × List Maplet :=
   let isExpt (d : Desc) := d.1 != .Rndx
-  let (v1, c1) := Cpsa2Lean.Lib.RBMap.partitionWithKey
-    (fun x d => Cpsa2Lean.Lib.RBSet.member x v && isExpt d) t1
-  let (v0, c0) := Cpsa2Lean.Lib.RBMap.partition isExpt t0
+  let (v1, c1) := LeanCPSA.Lib.RBMap.partitionWithKey
+    (fun x d => LeanCPSA.Lib.RBSet.member x v && isExpt d) t1
+  let (v0, c0) := LeanCPSA.Lib.RBMap.partition isExpt t0
   let lhs := mul v0 (invert v1)
   let rhs := mul c1 (invert c0)
-  (Cpsa2Lean.Lib.RBMap.assocs lhs, Cpsa2Lean.Lib.RBMap.assocs rhs)
+  (LeanCPSA.Lib.RBMap.assocs lhs, LeanCPSA.Lib.RBMap.assocs rhs)
 
 /-- Find the canonical representative of `x` under the `same` list.
     Mirrors `listChase :: Eq t => [(t, t)] -> t -> t`. -/
@@ -1681,9 +1681,9 @@ def nextDecis (d : Decision Id) (t : List Maplet) : List (Id × Id) :=
 
 /-- Orient each undecided pair so the first element is a fresh variable.
     Mirrors `orientDecis :: Set Id -> [(Id, Id)] -> [(Id, Id)]`. -/
-def orientDecis (v : Cpsa2Lean.Lib.RBSet Id) (pairs : List (Id × Id)) : List (Id × Id) :=
+def orientDecis (v : LeanCPSA.Lib.RBSet Id) (pairs : List (Id × Id)) : List (Id × Id) :=
   pairs.map (fun (x, y) =>
-    if Cpsa2Lean.Lib.RBSet.notMember x v then (y, x) else (x, y))
+    if LeanCPSA.Lib.RBSet.notMember x v then (y, x) else (x, y))
 
 /-- Replace all occurrences of `x` by `y` in maplet list `t`, then
     remove any zero-coefficient entries and the `x` entry.
@@ -1699,8 +1699,8 @@ def identify (x y : Id) (t : List Maplet) : List Maplet :=
 /-- Apply `idSubst (M.singleton x t)` to every value in `r`.
     Mirrors `eliminate :: Id -> Term -> IdMap -> IdMap`. -/
 def eliminate (x : Id) (t : Term) (r : IdMap) : IdMap :=
-  Cpsa2Lean.Lib.RBMap.map
-    (idSubst (Cpsa2Lean.Lib.RBMap.singleton x t))
+  LeanCPSA.Lib.RBMap.map
+    (idSubst (LeanCPSA.Lib.RBMap.singleton x t))
     r
 
 /-- Drop the element at position `n` from a list.
@@ -1732,15 +1732,15 @@ def smallest (t : List Maplet) : Id × Int × Int :=
   match t with
   | [] => assertError "Algebra.smallest: empty list"
   | (x0, (_, c0)) :: rest =>
-      (Cpsa2Lean.Lib.enum rest).foldl
+      (LeanCPSA.Lib.enum rest).foldl
         (fun (v, ci, pos) (j, (x, (_, c))) =>
           if (j + 1 : Int) >= 0 && c.natAbs > 0 && c.natAbs < ci.natAbs
           then (x, c, j + 1)
           else (v, ci, pos))
         (x0, c0, 0)
 
-private partial def constSolve1 (t : List Maplet) (v : Cpsa2Lean.Lib.RBSet Id) (g : Gen)
-    (r : IdMap) (d : Decision Id) : List (Cpsa2Lean.Lib.RBSet Id × Gen × IdMap) :=
+private partial def constSolve1 (t : List Maplet) (v : LeanCPSA.Lib.RBSet Id) (g : Gen)
+    (r : IdMap) (d : Decision Id) : List (LeanCPSA.Lib.RBSet Id × Gen × IdMap) :=
   if t.isEmpty then [(v, g, r)]
   else
     match orientDecis v (nextDecis d t) with
@@ -1751,15 +1751,15 @@ private partial def constSolve1 (t : List Maplet) (v : Cpsa2Lean.Lib.RBSet Id) (
         let y' := groupVar .Rndx y
         let d' := { d with same := (x, y) :: d.same }
         let t' := identify x y t
-        let v' := Cpsa2Lean.Lib.RBSet.delete x v
+        let v' := LeanCPSA.Lib.RBSet.delete x v
         let r' := eliminate x y' r
         let identified := constSolve1 t' v' g r' d'
         distinct ++ identified
 
 /-- Solve when there are no expr variables on the LHS.
     Mirrors `constSolve`. -/
-def constSolve (t : List Maplet) (v : Cpsa2Lean.Lib.RBSet Id) (g : Gen) (r : IdMap)
-    (d : Decision Id) : List (Cpsa2Lean.Lib.RBSet Id × Gen × IdMap) :=
+def constSolve (t : List Maplet) (v : LeanCPSA.Lib.RBSet Id) (g : Gen) (r : IdMap)
+    (d : Decision Id) : List (LeanCPSA.Lib.RBSet Id × Gen × IdMap) :=
   if t.any (fun (_, (be, _)) => be != .Rndx) then []
   else constSolve1 t v g r d
 
@@ -1767,8 +1767,8 @@ mutual
   /-- Solve the linear equation `t0 = t1` over group variables (expr case).
       Mirrors `solve`. -/
   private partial def solve
-      (t0 t1 : List Maplet) (v : Cpsa2Lean.Lib.RBSet Id) (g : Gen) (r : IdMap)
-      (d : Decision Id) : List (Cpsa2Lean.Lib.RBSet Id × Gen × IdMap) :=
+      (t0 t1 : List Maplet) (v : LeanCPSA.Lib.RBSet Id) (g : Gen) (r : IdMap)
+      (d : Decision Id) : List (LeanCPSA.Lib.RBSet Id × Gen × IdMap) :=
     let (x, ci, i) := smallest t0
     if ci > 0 then agSolve x ci i t0 t1 v g r d
     else if ci < 0 then agSolve x (-ci) i (mInverse t0) (mInverse t1) v g r d
@@ -1776,12 +1776,12 @@ mutual
 
   /-- One step of the AG algorithm.  Mirrors `agSolve`. -/
   private partial def agSolve
-      (x : Id) (ci i : Int) (t0 t1 : List Maplet) (v : Cpsa2Lean.Lib.RBSet Id)
+      (x : Id) (ci i : Int) (t0 t1 : List Maplet) (v : LeanCPSA.Lib.RBSet Id)
       (g : Gen) (r : IdMap) (d : Decision Id)
-      : List (Cpsa2Lean.Lib.RBSet Id × Gen × IdMap) :=
+      : List (LeanCPSA.Lib.RBSet Id × Gen × IdMap) :=
     if ci == 1 then
       let t := .G (group (t1 ++ mInverse (omitNth i t0)))
-      [(Cpsa2Lean.Lib.RBSet.delete x v, g, eliminate x t r)]
+      [(LeanCPSA.Lib.RBSet.delete x v, g, eliminate x t r)]
     else if divisible ci t0 then
       if divisible ci t1 then agSolve x 1 i (divide ci t0) (divide ci t1) v g r d
       else identSolve x ci i t0 t1 v g r d
@@ -1790,14 +1790,14 @@ mutual
       let t := .G (group ((x', (.Expt, 1)) :: mInverse (divide ci (omitNth i t0))))
       let r' := eliminate x t r
       let t0' := (x', (.Expt, ci)) :: modulo ci (omitNth i t0)
-      solve t0' t1 (Cpsa2Lean.Lib.RBSet.insert x' (Cpsa2Lean.Lib.RBSet.delete x v)) g' r' d
+      solve t0' t1 (LeanCPSA.Lib.RBSet.insert x' (LeanCPSA.Lib.RBSet.delete x v)) g' r' d
 
   /-- Explore two choices (distinct vs identified) for a pair of rndx vars.
       Mirrors `identSolve`. -/
   private partial def identSolve
-      (z : Id) (ci i : Int) (t0 t1 : List Maplet) (v : Cpsa2Lean.Lib.RBSet Id)
+      (z : Id) (ci i : Int) (t0 t1 : List Maplet) (v : LeanCPSA.Lib.RBSet Id)
       (g : Gen) (r : IdMap) (d : Decision Id)
-      : List (Cpsa2Lean.Lib.RBSet Id × Gen × IdMap) :=
+      : List (LeanCPSA.Lib.RBSet Id × Gen × IdMap) :=
     match orientDecis v (nextDecis d t1) with
     | [] => []
     | (x, y) :: _ =>
@@ -1806,7 +1806,7 @@ mutual
         let y' := groupVar .Rndx y
         let d' := { d with same := (x, y) :: d.same }
         let t1' := identify x y t1
-        let v' := Cpsa2Lean.Lib.RBSet.delete x v
+        let v' := LeanCPSA.Lib.RBSet.delete x v
         let r' := eliminate x y' r
         let identified := agSolve z ci i t0 t1' v' g r' d'
         distinct ++ identified
@@ -1815,8 +1815,8 @@ end
 /-- Unify pattern group `t0` against target group `t1` under
     environment `(v, g, r)`.
     Mirrors `matchGroup`. -/
-def matchGroup (t0 t1 : Group) (v : Cpsa2Lean.Lib.RBSet Id) (g : Gen) (r : IdMap)
-    : List (Cpsa2Lean.Lib.RBSet Id × Gen × IdMap) :=
+def matchGroup (t0 t1 : Group) (v : LeanCPSA.Lib.RBSet Id) (g : Gen) (r : IdMap)
+    : List (LeanCPSA.Lib.RBSet Id × Gen × IdMap) :=
   let (t0', t1') := mergeGroups t0 t1 r
   let (v', g', r') := genVars v g t0' r
   let d := mkInitMatchDecis v' t1'
@@ -1855,10 +1855,10 @@ mutual
     match t, t' with
     | .I x, .I y =>
         if x == y then [gs]
-        else [(g, ⟨Cpsa2Lean.Lib.RBMap.insert x (.I y) s⟩)]
+        else [(g, ⟨LeanCPSA.Lib.RBMap.insert x (.I y) s⟩)]
     | .I x, _ =>
         if occurs x t' then []
-        else [(g, ⟨Cpsa2Lean.Lib.RBMap.insert x t' s⟩)]
+        else [(g, ⟨LeanCPSA.Lib.RBMap.insert x t' s⟩)]
     | _, .I _ => unifyTerms t' t gs
     | .C c, .C c' => if c == c' then [gs] else []
     | .F (.Invk "akey") [.I x], .F .Pubk [.I y] =>
@@ -1878,8 +1878,8 @@ mutual
     | .G t0, .G t1 => unifyGroup t0 t1 gs
     | .D x, .D y =>
         if x == y then [gs]
-        else [(g, ⟨Cpsa2Lean.Lib.RBMap.insert x (.D y) s⟩)]
-    | .D x, .Z p => [(g, ⟨Cpsa2Lean.Lib.RBMap.insert x (.Z p) s⟩)]
+        else [(g, ⟨LeanCPSA.Lib.RBMap.insert x (.D y) s⟩)]
+    | .D x, .Z p => [(g, ⟨LeanCPSA.Lib.RBMap.insert x (.Z p) s⟩)]
     | _, .D _ => unifyTerms t' t gs
     | .Z p, .Z p' => if p == p' then [gs] else []
     | _, _ => []
@@ -1910,10 +1910,10 @@ mutual
       | .I x1, .I x2 =>
           let (g', zid) := freshId g "z"
           let z := groupVarGroup zid
-          unifyGroup (mul e0 z) e1 (g', ⟨Cpsa2Lean.Lib.RBMap.insert x1 (.F .Exp [.I x2, .G z]) s⟩)
+          unifyGroup (mul e0 z) e1 (g', ⟨LeanCPSA.Lib.RBMap.insert x1 (.F .Exp [.I x2, .G z]) s⟩)
       | .I x, .F .Genr [] =>
-          if e0 == e1 then [(g, ⟨Cpsa2Lean.Lib.RBMap.insert x (.F .Genr []) s⟩)]
-          else [(g, ⟨Cpsa2Lean.Lib.RBMap.insert x (.F .Exp [.F .Genr [], .G (mul e1 (invert e0))]) s⟩)]
+          if e0 == e1 then [(g, ⟨LeanCPSA.Lib.RBMap.insert x (.F .Genr []) s⟩)]
+          else [(g, ⟨LeanCPSA.Lib.RBMap.insert x (.F .Exp [.F .Genr [], .G (mul e1 (invert e0))]) s⟩)]
       | .F .Genr [], .I _ => unifyExp t0' e1 t0 e0 gs
       | _, _ => []
 
@@ -1963,8 +1963,8 @@ mutual
     let (g, e) := ge
     match t, t' with
     | .I x, _ =>
-        match Cpsa2Lean.Lib.RBMap.lookup x e.map with
-        | none    => [(g, { e with map := Cpsa2Lean.Lib.RBMap.insert x t' e.map })]
+        match LeanCPSA.Lib.RBMap.lookup x e.map with
+        | none    => [(g, { e with map := LeanCPSA.Lib.RBMap.insert x t' e.map })]
         | some t'' => if t' == t'' then [ge] else []
     | .C c, .C c'           => if c == c' then [ge] else []
     | .F .Base [t0], .F .Base [t1] => matchBase t0 t1 ge
@@ -1977,13 +1977,13 @@ mutual
         (matchGroup tg tg' e.vars g e.map).map
           (fun (v', g', r') => (g', { vars := v', map := r' }))
     | .D x, _ =>
-        match Cpsa2Lean.Lib.RBMap.lookup x e.map with
-        | none    => [(g, { e with map := Cpsa2Lean.Lib.RBMap.insert x t' e.map })]
+        match LeanCPSA.Lib.RBMap.lookup x e.map with
+        | none    => [(g, { e with map := LeanCPSA.Lib.RBMap.insert x t' e.map })]
         | some t'' => if t' == t'' then [ge] else []
     | .Z p, .Z p'           => if p == p' then [ge] else []
     | .X x, _ =>
-        match Cpsa2Lean.Lib.RBMap.lookup x e.map with
-        | none    => [(g, { e with map := Cpsa2Lean.Lib.RBMap.insert x t' e.map })]
+        match LeanCPSA.Lib.RBMap.lookup x e.map with
+        | none    => [(g, { e with map := LeanCPSA.Lib.RBMap.insert x t' e.map })]
         | some t'' => if t' == t'' then [ge] else []
     | .Y p, .Y p'           => if p == p' then [ge] else []
     | _, _                  => []
@@ -2009,7 +2009,7 @@ mutual
     | .F .Exp _, _ => assertError "Algebra.matchExp: non-canonical form"
     | _, .F .Exp _ => assertError "Algebra.matchExp: non-canonical form"
     | .I x, _ =>
-        match Cpsa2Lean.Lib.RBMap.lookup x e.map with
+        match LeanCPSA.Lib.RBMap.lookup x e.map with
         | some t =>
             if (calcBase t0').1 == (calcBase t).1 then
               xmatch (.G e0)
@@ -2020,7 +2020,7 @@ mutual
             let w := groupVarGroup wid
             matchLists [.I x, .G e0]
               [.F .Exp [t0', .G w], .G (mul e1 (invert w))]
-              (g', { e with vars := Cpsa2Lean.Lib.RBSet.insert wid e.vars })
+              (g', { e with vars := LeanCPSA.Lib.RBSet.insert wid e.vars })
     | .F .Genr [], _ =>
         matchLists [.F .Genr [], .G e0] [t0', .G e1] ge
     | _, _ => assertError "Algebra.matchExp: Bad match term"
@@ -2068,7 +2068,7 @@ def absentEnv (gs : GenEnv) (pair : Term × Term) : List GenEnv :=
 /-- True when every value in the range of `env` is a variable.
     Mirrors `matchRangeIsVars`. -/
 def matchRangeIsVars (ge : GenEnv) : Bool :=
-  Cpsa2Lean.Lib.RBMap.foldr (fun v acc => acc && isVar v) true ge.2.map
+  LeanCPSA.Lib.RBMap.foldr (fun v acc => acc && isVar v) true ge.2.map
 
 /-- Match `t` against `t'` and check that the range consists of variables
     in both directions.
@@ -2129,7 +2129,7 @@ partial def reify (domain : List Term) (e : Env) : List (Term × Term) :=
     | .X x :: rest =>
         if x == y then (.X x, t) else findSortedVar rest y t
     | _ :: rest => findSortedVar rest y t
-  Cpsa2Lean.Lib.RBMap.assocs e.map |>.map (fun (y, t) => findSortedVar domain y t)
+  LeanCPSA.Lib.RBMap.assocs e.map |>.map (fun (y, t) => findSortedVar domain y t)
 
 -- ── Stage 4D: Strand / index helpers ─────────────────────────────────────────
 
@@ -2142,7 +2142,7 @@ def strdLookup (e : Env) (t : Term) : Option Int :=
   | _    => none
 
 def strdUpdate (e : Env) (f : Int → Int) : Env :=
-  let m := Cpsa2Lean.Lib.RBMap.map (fun t => match t with | .Z z => .Z (f z) | t => t) e.map
+  let m := LeanCPSA.Lib.RBMap.map (fun t => match t with | .Z z => .Z (f z) | t => t) e.map
   { e with map := m }
 
 def indxMatch (t : Term) (p : Int) (ge : GenEnv) : List GenEnv :=
@@ -2154,7 +2154,7 @@ def indxLookup (e : Env) (t : Term) : Option Int :=
   | _    => none
 
 def indxUpdate (e : Env) (f : Int → Int) : Env :=
-  let m := Cpsa2Lean.Lib.RBMap.map (fun t => match t with | .Y z => .Y (f z) | t => t) e.map
+  let m := LeanCPSA.Lib.RBMap.map (fun t => match t with | .Y z => .Y (f z) | t => t) e.map
   { e with map := m }
 
 def indxOfInt (i : Int) : Term := .Y i
@@ -2162,7 +2162,7 @@ def strdOfInt (i : Int) : Term := .Z i
 
 -- ── Stage 4E: Term loading ────────────────────────────────────────────────────
 
-open Cpsa2Lean.Signature (Operator)
+open LeanCPSA.Signature (Operator)
 
 instance : ToString Id where toString x := x.name
 
@@ -2290,7 +2290,7 @@ mutual
         else if s == "rec"   then loadRec   sig pos vars strict l
         else if s == "mul"   then loadMul   sig pos vars strict l
         else if s == "cat"   then loadCat   sig pos vars strict l
-        else match Cpsa2Lean.Signature.findOper s sig.opers with
+        else match LeanCPSA.Signature.findOper s sig.opers with
           | none    => .error s!"{pos}Keyword {s} unknown"
           | some op => loadOperImpl sig pos vars strict op l
     | x => .error s!"{x.annotation}Malformed term"
@@ -2674,7 +2674,7 @@ end
 /-- Display all bindings of an environment as a list of `(lhs rhs)` pairs.
     Mirrors `displayEnv :: Context -> Context -> Env -> [SExpr ()]`. -/
 def displayEnv (ctx ctx' : Context) (e : Env) : List (SExpr Unit) :=
-  let bindings := Cpsa2Lean.Lib.RBMap.assocs e.map |>.map
+  let bindings := LeanCPSA.Lib.RBMap.assocs e.map |>.map
     (fun (x, t) => (.I x, inferSort t))
   let ctx'' := addToContext ctx' (bindings.map Prod.snd)
   bindings.map (fun (lhs, rhs) =>
@@ -2710,7 +2710,7 @@ def newVar (sig : Sig) (g : Gen) (varN varSort : String) : Gen × Term :=
 /-- `newVar` specialised to the default signature.
     Mirrors `newVarDefault :: Gen -> String -> String -> (Gen, Term)`. -/
 def newVarDefault (g : Gen) (varN varSort : String) : Gen × Term :=
-  newVar Cpsa2Lean.Signature.defaultSig g varN varSort
+  newVar LeanCPSA.Signature.defaultSig g varN varSort
 
 /-- The human-readable name of a variable term.
     Mirrors `varName :: Term -> String`. -/
@@ -2758,7 +2758,7 @@ def addSortNameToVarListSpec (sn vn : String) : VarListSpec → Option VarListSp
   | []                     => none
   | (sn', vns) :: rest =>
       if sn == sn' then
-        some ((sn, Cpsa2Lean.Lib.adjoin vn vns) :: rest)
+        some ((sn, LeanCPSA.Lib.adjoin vn vns) :: rest)
       else
         addSortNameToVarListSpec sn vn rest |>.map (fun added => (sn', vns) :: added)
 
@@ -2861,7 +2861,7 @@ partial def displayTermNoPt (ctx : Context) : Term → SExpr Unit
 def displayEnvSansPts (vars : List Term) (ctx ctx' : Context) (e : Env) : List (SExpr Unit) :=
   let nonPt (t : Term) : Bool := !vars.contains (.F .Pval [t])
   let bindings :=
-    Cpsa2Lean.Lib.RBMap.assocs (Cpsa2Lean.Lib.RBMap.filter nonPt e.map) |>.map
+    LeanCPSA.Lib.RBMap.assocs (LeanCPSA.Lib.RBMap.filter nonPt e.map) |>.map
       (fun (x, t) => (.I x, inferSort t))
   let ctx'' := addToContext ctx' (bindings.map Prod.snd)
   bindings.map (fun (lhs, rhs) => .lst () [displayTerm ctx lhs, displayTerm ctx'' rhs])
@@ -2870,9 +2870,9 @@ def displayEnvSansPts (vars : List Term) (ctx ctx' : Context) (e : Env) : List (
     Mirrors `displaySubst :: Context -> Subst -> [SExpr ()]`. -/
 def displaySubst (ctx : Context) (s : Subst) : List (SExpr Unit) :=
   let bindings :=
-    Cpsa2Lean.Lib.RBMap.assocs s.map |>.map
+    LeanCPSA.Lib.RBMap.assocs s.map |>.map
       (fun (x, t) => (.I x, inferSort t))
   let ctx' := bindings.foldl (fun c (x, t) => addToContext c [x, t]) ctx
   bindings.map (fun (lhs, rhs) => .lst () [displayTerm ctx' lhs, displayTerm ctx' rhs])
 
-end Cpsa2Lean.Algebra
+end LeanCPSA.Algebra

@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Lib.Entry
+LeanCPSA.Lib.Entry
 
 Port of CPSA.Lib.Entry (MITRE cpsa v4.4.8).
 
@@ -29,10 +29,10 @@ What IS ported:
   - `writeComment`                   — convenience wrapper
 -/
 
-import Cpsa2Lean.Lib.SExpr
-import Cpsa2Lean.Lib.Printer
+import LeanCPSA.Lib.SExpr
+import LeanCPSA.Lib.Printer
 
-namespace Cpsa2Lean.Lib
+namespace LeanCPSA.Lib
 
 -- ── Formatting constants ──────────────────────────────────────────────────────
 
@@ -114,4 +114,4 @@ def writeLnSExprH {α : Type} (h : IO.FS.Stream) (margin : Int)
 def writeCommentH (h : IO.FS.Stream) (margin : Int) (msg : String) : IO Unit :=
   writeSExprH h margin (comment msg)
 
-end Cpsa2Lean.Lib
+end LeanCPSA.Lib

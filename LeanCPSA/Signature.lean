@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Signature
+LeanCPSA.Signature
 
 Port of CPSA.Signature.hs (MITRE cpsa v4.4.8).
 
@@ -18,11 +18,11 @@ University of California.
 Defines `Sig`, `Operator`, `defaultSig`, `findOper`, and `loadSig`.
 -/
 
-import Cpsa2Lean.Lib.SExpr
+import LeanCPSA.Lib.SExpr
 
-namespace Cpsa2Lean.Signature
+namespace LeanCPSA.Signature
 
-open Cpsa2Lean.Lib (SExpr Pos)
+open LeanCPSA.Lib (SExpr Pos)
 
 /-- Operators that may appear in an algebra's signature.  Each carries the
     user-facing symbol used in the surface syntax (e.g. `"enc"`, `"hash"`,
@@ -202,4 +202,4 @@ def loadSig (pos : Pos) (decls : List (SExpr Pos)) : Except String Sig := do
     throw s!"{pos}Duplicate operator symbol in language"
   return sig
 
-end Cpsa2Lean.Signature
+end LeanCPSA.Signature

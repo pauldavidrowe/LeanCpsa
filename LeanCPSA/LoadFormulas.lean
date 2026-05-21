@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.LoadFormulas
+LeanCPSA.LoadFormulas
 
 Port of CPSA.LoadFormulas (MITRE cpsa v4.4.8).
 
@@ -20,15 +20,15 @@ All functions that return `MonadFail m => m a` in Haskell are ported as
 `Pos` ToString instance (`s!"{pos}..."`) so position prefixes are preserved.
 -/
 
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Protocol
+import LeanCPSA.Algebra
+import LeanCPSA.Protocol
 
-namespace Cpsa2Lean.LoadFormulas
+namespace LeanCPSA.LoadFormulas
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Protocol
-open Cpsa2Lean.Signature (Sig)
-open Cpsa2Lean.Lib (SExpr Pos)
+open LeanCPSA.Algebra
+open LeanCPSA.Protocol
+open LeanCPSA.Signature (Sig)
+open LeanCPSA.Lib (SExpr Pos)
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ private def showTerm (t : Term) : String :=
     Uses the original index as a tiebreaker to make the sort stable,
     matching Haskell's `Data.List.sortBy` which is a stable sort. -/
 private def sortConj (c : Conj) : Conj :=
-    ((Cpsa2Lean.Lib.enum c).toArray.qsort (fun (i, (_, x)) (j, (_, y)) =>
+    ((LeanCPSA.Lib.enum c).toArray.qsort (fun (i, (_, x)) (j, (_, y)) =>
     match aFormOrder x y with
     | .lt => true
     | .eq => i < j
@@ -530,4 +530,4 @@ def loadSentence (sig : Sig) (md : Mode) (pos : Pos) (p : Prot)
       loadImplication sig md pos p g' vars body
   | _ => .error s!"{pos}Bad goal sentence:  No forall"
 
-end Cpsa2Lean.LoadFormulas
+end LeanCPSA.LoadFormulas

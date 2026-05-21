@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Cohort
+LeanCPSA.Cohort
 
 Port of CPSA.Cohort (MITRE cpsa v4.4.8).
 
@@ -14,20 +14,20 @@ modify it under the terms of the BSD License as published by the
 University of California.
 -/
 
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Channel
-import Cpsa2Lean.Protocol
-import Cpsa2Lean.Operation
-import Cpsa2Lean.Strand
+import LeanCPSA.Algebra
+import LeanCPSA.Channel
+import LeanCPSA.Protocol
+import LeanCPSA.Operation
+import LeanCPSA.Strand
 
-namespace Cpsa2Lean.Cohort
+namespace LeanCPSA.Cohort
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Channel
-open Cpsa2Lean.Protocol
-open Cpsa2Lean.Operation (Direction Cause Node Pair Sid getStrandMap)
-open Cpsa2Lean.Strand
-open Cpsa2Lean.Lib (RBSet assertError adjoin)
+open LeanCPSA.Algebra
+open LeanCPSA.Channel
+open LeanCPSA.Protocol
+open LeanCPSA.Operation (Direction Cause Node Pair Sid getStrandMap)
+open LeanCPSA.Strand
+open LeanCPSA.Lib (RBSet assertError adjoin)
 
 -- ── Compile-time flags ────────────────────────────────────────────────────────
 
@@ -663,4 +663,4 @@ def reduce (mode : Mode) (k : Preskel) : ReduceRes :=
     .Crt (filterSame k (factorIsomorphicPreskels
       (ks.foldr (fun k' soFar => simplify k' ++ soFar) [])))
 
-end Cpsa2Lean.Cohort
+end LeanCPSA.Cohort

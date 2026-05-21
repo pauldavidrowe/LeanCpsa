@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Lib.RBMap
+LeanCPSA.Lib.RBMap
 
 A thin shim over `Lean.RBMap` that exposes a `Data.Map`-like API for
 the port of CPSA.Algebra and related files.  There is no corresponding
@@ -16,7 +16,7 @@ to avoid dot-notation resolving to our own shim definitions.
 
 import Lean.Data.RBMap
 
-namespace Cpsa2Lean.Lib
+namespace LeanCPSA.Lib
 
 -- ── RBSet ────────────────────────────────────────────────────────────────────
 
@@ -245,4 +245,4 @@ instance [Repr α] [Repr β] : Repr (RBMap α β) where
 
 end RBMap
 
-end Cpsa2Lean.Lib
+end LeanCPSA.Lib

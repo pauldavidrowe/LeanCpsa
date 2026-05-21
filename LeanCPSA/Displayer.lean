@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Displayer
+LeanCPSA.Displayer
 
 Port of CPSA.Displayer (MITRE cpsa v4.4.8).
 
@@ -14,20 +14,20 @@ modify it under the terms of the BSD License as published by the
 University of California.
 -/
 
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Channel
-import Cpsa2Lean.Protocol
-import Cpsa2Lean.Operation
-import Cpsa2Lean.Strand
+import LeanCPSA.Algebra
+import LeanCPSA.Channel
+import LeanCPSA.Protocol
+import LeanCPSA.Operation
+import LeanCPSA.Strand
 
-namespace Cpsa2Lean.Displayer
+namespace LeanCPSA.Displayer
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Channel
-open Cpsa2Lean.Protocol
-open Cpsa2Lean.Operation (Operation Direction Cause Method getStrandMap Node Pair Sid)
-open Cpsa2Lean.Strand
-open Cpsa2Lean.Lib (SExpr assertError)
+open LeanCPSA.Algebra
+open LeanCPSA.Channel
+open LeanCPSA.Protocol
+open LeanCPSA.Operation (Operation Direction Cause Method getStrandMap Node Pair Sid)
+open LeanCPSA.Strand
+open LeanCPSA.Lib (SExpr assertError)
 
 -- ── Sort helpers ──────────────────────────────────────────────────────────────
 
@@ -417,7 +417,7 @@ def displayOperation (k : Preskel) (ctx : Context) (rest : List (SExpr Unit))
              op ::
              displayOpCmt ctx cause.cmt ::
              displayNode cause.node ::
-             displayOpCmts ctx (Cpsa2Lean.Lib.RBSet.toList cause.cmts)) :: rest
+             displayOpCmts ctx (LeanCPSA.Lib.RBSet.toList cause.cmts)) :: rest
   let displayMeth : Method → List (SExpr Unit)
     | .Deleted node      => [.sym () "deleted", displayNode node]
     | .Weakened (n0, n1) => [.sym () "weakened",
@@ -497,4 +497,4 @@ def displayPreskel (k : Preskel) (rest : List (SExpr Unit)) : SExpr Unit :=
            k.insts.foldr (fun i acc => displayInst ctx i :: acc)
              (displayRest k ctx rest))
 
-end Cpsa2Lean.Displayer
+end LeanCPSA.Displayer

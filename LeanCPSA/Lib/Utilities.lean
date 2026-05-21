@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Lib.Utilities
+LeanCPSA.Lib.Utilities
 
 Port of CPSA.Lib.Utilities (MITRE cpsa v4.4.8).
 
@@ -24,7 +24,7 @@ University of California.
 
 import Lean.Data.RBMap
 
-namespace Cpsa2Lean.Lib
+namespace LeanCPSA.Lib
 
 -- ── List set operations ───────────────────────────────────────────────────────
 
@@ -185,15 +185,15 @@ def isAcyclic {α : Type} [BEq α] (cmp : α → α → Ordering)
   let numbering := dfs cmp adj start
   edges.all fun e => !backEdge numbering e
 
-end Cpsa2Lean.Lib
+end LeanCPSA.Lib
 
 /- Global List accessors that mirror the original CPSA code's use of
   dot-projections like `xs.get?` and `xs.get!`. These delegate to the
-  safe `maybeNth` helper in `Cpsa2Lean.Lib`. -/
+  safe `maybeNth` helper in `LeanCPSA.Lib`. -/
 namespace List
 
 def get? {α : Type} (xs : List α) (i : Nat) : Option α :=
-  Cpsa2Lean.Lib.maybeNth xs i
+  LeanCPSA.Lib.maybeNth xs i
 
 def get! {α : Type} [Inhabited α] (xs : List α) (i : Nat) : α :=
   match get? xs i with

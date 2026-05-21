@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Options
+LeanCPSA.Options
 
 Command line options
 Port of CPSA.Options (MITRE cpsa v4.4.8).
@@ -21,11 +21,11 @@ The Haskell `algOptions`/`algInterp` (which used `System.Console.GetOpt`)
 are replaced by `parseArgs`/`interp` in Main.lean.
 -/
 
-import Cpsa2Lean.Algebra
+import LeanCPSA.Algebra
 
-namespace Cpsa2Lean.Options
+namespace LeanCPSA.Options
 
-open Cpsa2Lean.Algebra (name)
+open LeanCPSA.Algebra (name)
 
 -- ── Options ───────────────────────────────────────────────────────────────────
 
@@ -87,4 +87,4 @@ inductive Flag where
   | Info               : Flag          -- -v / --version
   deriving Repr
 
-end Cpsa2Lean.Options
+end LeanCPSA.Options

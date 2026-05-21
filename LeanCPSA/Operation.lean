@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Operation
+LeanCPSA.Operation
 
 Port of CPSA.Operation (MITRE cpsa v4.4.8).
 
@@ -24,15 +24,15 @@ instance, so the containing types cannot derive `Repr` either.
 `Direction` is the sole exception.
 -/
 
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Channel
-import Cpsa2Lean.Lib.RBMap
+import LeanCPSA.Algebra
+import LeanCPSA.Channel
+import LeanCPSA.Lib.RBMap
 
-namespace Cpsa2Lean.Operation
+namespace LeanCPSA.Operation
 
-open Cpsa2Lean.Algebra (Term Subst)
-open Cpsa2Lean.Channel (CMT)
-open Cpsa2Lean.Lib (RBSet)
+open LeanCPSA.Algebra (Term Subst)
+open LeanCPSA.Channel (CMT)
+open LeanCPSA.Lib (RBSet)
 
 -- ── Basic type aliases ────────────────────────────────────────────────────────
 
@@ -135,4 +135,4 @@ def addStrandMap (sm : List Sid) : Operation → Operation
   | .Collapsed     _ n1 n2         => .Collapsed     sm n1 n2
   | .AppliedRules  _               => .AppliedRules  sm
 
-end Cpsa2Lean.Operation
+end LeanCPSA.Operation

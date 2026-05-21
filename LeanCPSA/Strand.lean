@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Strand
+LeanCPSA.Strand
 
 Port of CPSA.Strand (MITRE cpsa v4.4.8).
 
@@ -25,17 +25,17 @@ Stage 2: FTerm/Fact types, graph infrastructure (GraphNode, GraphStrand, Graph,
          Preskel structure, and basic preskeleton accessors.
 -/
 
-import Cpsa2Lean.Protocol
-import Cpsa2Lean.Channel
-import Cpsa2Lean.Operation
+import LeanCPSA.Protocol
+import LeanCPSA.Channel
+import LeanCPSA.Operation
 
-namespace Cpsa2Lean.Strand
+namespace LeanCPSA.Strand
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Channel
-open Cpsa2Lean.Protocol
-open Cpsa2Lean.Operation (Operation Sid Node Pair Cause)
-open Cpsa2Lean.Lib (assertError RBSet nats adjoin)
+open LeanCPSA.Algebra
+open LeanCPSA.Channel
+open LeanCPSA.Protocol
+open LeanCPSA.Operation (Operation Sid Node Pair Cause)
+open LeanCPSA.Lib (assertError RBSet nats adjoin)
 
 -- ── Compile-time switches ─────────────────────────────────────────────────────
 
@@ -486,7 +486,7 @@ def nodeGraphCloseAll (orderings : List Pair) : List Pair :=
 structure Shared where
   prot     : Prot
   goals    : List Goal
-  comments : List (Cpsa2Lean.Lib.SExpr Unit)
+  comments : List (LeanCPSA.Lib.SExpr Unit)
   deriving Repr
 
 -- ── Gist ──────────────────────────────────────────────────────────────────────
@@ -573,7 +573,7 @@ private instance : Inhabited Rule :=
 
 private instance : Inhabited Prot :=
   ⟨{ pname := "", alg := "", pgen := default,
-     psig := Cpsa2Lean.Signature.defaultSig,
+     psig := LeanCPSA.Signature.defaultSig,
      roles := [], listenerRole := default,
      nullaryrules := [], unaryrules := [], generalrules := [],
      userrules := [], generatedrules := [],
@@ -594,7 +594,7 @@ instance : Inhabited Preskel :=
      operation := .New, krules := [], pprob := [], prob := [] }⟩
 
 -- Type aliases matching the Haskell source (defined after Preskel to avoid
--- ambiguity between the `Strand` alias and the `Cpsa2Lean.Strand` namespace).
+-- ambiguity between the `Strand` alias and the `LeanCPSA.Strand` namespace).
 abbrev KStrand := GraphStrand   -- mirrors `type Strand = GraphStrand Event Instance`
 abbrev Vertex  := GraphNode     -- mirrors `type Vertex = GraphNode Event Instance`
 abbrev Edge    := GraphEdge     -- mirrors `type Edge   = GraphEdge Event Instance`
@@ -603,10 +603,10 @@ abbrev Edge    := GraphEdge     -- mirrors `type Edge   = GraphEdge Event Instan
 
 def protocol (k : Preskel) : Prot      := k.shared.prot
 def kgoals   (k : Preskel) : List Goal := k.shared.goals
-def kcomment (k : Preskel) : List (Cpsa2Lean.Lib.SExpr Unit) := k.shared.comments
+def kcomment (k : Preskel) : List (LeanCPSA.Lib.SExpr Unit) := k.shared.comments
 
 def updateStrandMap (sm : List Sid) (k : Preskel) : Preskel :=
-  { k with operation := Cpsa2Lean.Operation.addStrandMap sm k.operation }
+  { k with operation := LeanCPSA.Operation.addStrandMap sm k.operation }
 
 def strandInst (k : Preskel) (s : Sid) : Instance :=
   if s.toNat < k.insts.length then k.insts.get! s.toNat
@@ -749,7 +749,7 @@ def acyclicOrder (k : Preskel) : Bool :=
     strands.get? n.1.toNat >>= fun s => s.nodes.get? n.2.toNat
   let allNodes := strands.flatMap (fun s => s.nodes)
   let adj (n : GraphNode) := n.preds.filterMap getNode
-  Cpsa2Lean.Lib.isAcyclic compare adj allNodes
+  LeanCPSA.Lib.isAcyclic compare adj allNodes
 
 -- ── Role origination / generation checks ─────────────────────────────────────
 
@@ -916,7 +916,7 @@ def mkPreskel (gen : Gen) (protocol : Prot) (gs : List Goal)
     (non pnon unique uniqgen : List Term)
     (absent : List (Term × Term)) (precur : List Node) (genSt conf auth : List Term)
     (facts : List Fact) (prio : List (Node × Int))
-    (comment : List (Cpsa2Lean.Lib.SExpr Unit)) : Preskel :=
+    (comment : List (LeanCPSA.Lib.SExpr Unit)) : Preskel :=
   let shared : Shared := { prot := protocol, goals := gs, comments := comment }
   let k := newPreskel gen shared insts orderings non pnon unique uniqgen
               absent precur genSt conf auth facts prio
@@ -1077,7 +1077,7 @@ def fperms (g g' : Gist) (env renv : GenEnv) : List (GenEnv × GenEnv × List Na
 /-- Inverse of a strand permutation.
     Mirrors `invperm :: [Int] -> [Int]`. -/
 def invperm (p : List Sid) : List Sid :=
-  let indexed := (Cpsa2Lean.Lib.enum p).map fun (i, s) => (s, Int.ofNat i)
+  let indexed := (LeanCPSA.Lib.enum p).map fun (i, s) => (s, Int.ofNat i)
   (indexed.mergeSort fun a b => a.1 < b.1).map Prod.snd
 
 /-- Apply a strand permutation to a node.
@@ -1239,7 +1239,7 @@ private def substInst (subst : Subst) (gen : Gen) (i : Instance)
 private def substCause (subst : Subst) (c : Cause) : Cause :=
   { c with
     cmt  := cmtSubstitute subst c.cmt,
-    cmts := Cpsa2Lean.Lib.RBSet.map (cmtSubstitute subst) c.cmts }
+    cmts := LeanCPSA.Lib.RBSet.map (cmtSubstitute subst) c.cmts }
 
 /-- Apply a substitution to an Operation.
     Mirrors `substOper :: Subst -> Operation -> Operation`. -/
@@ -1355,7 +1355,7 @@ def compress (validate : Bool) (prs : PRS) (s s' : Sid) : List PRS :=
   let (k0, k, n, phi, hsubst) := prs
   let perm := updatePerm s s' k.strandids
   (normalizeOrderings validate (permuteOrderings perm k.orderings)).flatMap fun orderings' =>
-    let k' := newPreskel k.gen k.shared (Cpsa2Lean.Lib.deleteNth s.toNat k.insts)
+    let k' := newPreskel k.gen k.shared (LeanCPSA.Lib.deleteNth s.toNat k.insts)
                 orderings' k.knon k.kpnon k.kunique k.kuniqgen k.kabsent
                 (k.kprecur.map (permuteNode perm)) k.kgenSt k.kconf k.kauth
                 (k.kfacts.map (updateFact (updateStrand s s')))
@@ -1371,7 +1371,7 @@ def purge (prs : PRS) (s s' : Sid) : List PRS :=
   let perm := updatePerm s s' k.strandids
   (normalizeOrderings false (permuteOrderings perm (forward s k.orderings))).flatMap
     fun orderings' =>
-    let k' := newPreskel k.gen k.shared (Cpsa2Lean.Lib.deleteNth s.toNat k.insts)
+    let k' := newPreskel k.gen k.shared (LeanCPSA.Lib.deleteNth s.toNat k.insts)
                 orderings' k.knon k.kpnon k.kunique k.kuniqgen k.kabsent
                 (k.kprecur.map (permuteNode perm)) k.kgenSt k.kconf k.kauth
                 ((deleteStrandFacts s k.kfacts).map (updateFact (updateStrand s s')))
@@ -1723,7 +1723,7 @@ partial def pruneStrand (prs : PRS) (s s' : Sid) : List PRS :=
   else
     (matchTraces (strandInst k s).trace (strandInst k s').trace (k.gen, emptyEnv)).flatMap
       fun (g, env) =>
-      let ts    := (Cpsa2Lean.Lib.deleteNth s.toNat k.insts).flatMap (fun i => tterms i.trace)
+      let ts    := (LeanCPSA.Lib.deleteNth s.toNat k.insts).flatMap (fun i => tterms i.trace)
       let subst := substitution env
       if !disjointDom subst ts then []
       else if !origCheck k env then []
@@ -2202,9 +2202,9 @@ def deleteNode (k : Preskel) (n : Vertex) : List (Preskel × List Sid) :=
   if p == 0 then
     if k.prob.contains s then []
     else
-      let mapping := Cpsa2Lean.Lib.deleteNth s.toNat k.strandids
+      let mapping := LeanCPSA.Lib.deleteNth s.toNat k.strandids
       let k' := deleteNodeRest k k.gen (s, p)
-                  (Cpsa2Lean.Lib.deleteNth s.toNat k.insts)
+                  (LeanCPSA.Lib.deleteNth s.toNat k.insts)
                   (deleteOrderings s k.tc)
                   (updatePerm s s k.prob)
                   ((deleteStrandFacts s k.kfacts).map (updateFact (updateStrand s s)))
@@ -2215,7 +2215,7 @@ def deleteNode (k : Preskel) (n : Vertex) : List (Preskel × List Sid) :=
     let i := strandInst k s
     (bldInstance i.role (i.trace.take p.toNat) k.gen).flatMap fun (gen', i') =>
       let k' := deleteNodeRest k gen' (s, p)
-                  (Cpsa2Lean.Lib.replaceNth i' s.toNat k.insts)
+                  (LeanCPSA.Lib.replaceNth i' s.toNat k.insts)
                   (shortenOrderings (s, p) k.tc)
                   k.prob
                   (deleteNodeFacts s p k.kfacts)
@@ -2562,7 +2562,7 @@ private def glength (r : Role) (z ht : Term) : Sem := fun k ge =>
   | some h =>
       match strdLookup ge.2 z with
       | none   =>
-          (Cpsa2Lean.Lib.enum k.insts).flatMap fun (sn, inst) =>
+          (LeanCPSA.Lib.enum k.insts).flatMap fun (sn, inst) =>
             glengthExtendEnv r z (Int.ofNat sn) h inst ge
       | some s =>
           if s < nstrands k then glengthExtendEnv r z s h (strandInst k s) ge
@@ -2585,7 +2585,7 @@ private def paramMatch (r : Role) (pname : Term) (h : Int) (z : Term)
 private def gparam (r : Role) (pname : Term) (h : Int) (z t' : Term) : Sem := fun k ge =>
   match strdLookup ge.2 z with
   | none   =>
-      (Cpsa2Lean.Lib.enum k.insts).flatMap fun (sn, inst) =>
+      (LeanCPSA.Lib.enum k.insts).flatMap fun (sn, inst) =>
         paramMatch r pname h z (Int.ofNat sn) t' inst ge
   | some s =>
       if s < nstrands k then paramMatch r pname h z s t' (strandInst k s) ge
@@ -2921,14 +2921,14 @@ private def compressUpdate (i j : Sid) (xs : List Sid) : List Sid :=
 private def rCompress (k : Preskel) (s s' : Sid) : List Preskel :=
   let perm := updatePerm s s' k.strandids
   (normalizeOrderings true (permuteOrderings perm k.orderings)).map fun orderings' =>
-    newPreskel k.gen k.shared (Cpsa2Lean.Lib.deleteNth s.toNat k.insts) orderings'
+    newPreskel k.gen k.shared (LeanCPSA.Lib.deleteNth s.toNat k.insts) orderings'
       k.knon k.kpnon k.kunique k.kuniqgen k.kabsent
       (k.kprecur.map (permuteNode perm))
       k.kgenSt k.kconf k.kauth
       (k.kfacts.map (updateFact (updateStrand s s')))
       (updatePriority perm k.kpriority)
       (let op := k.operation
-       Cpsa2Lean.Operation.addStrandMap (compressUpdate s s' (Cpsa2Lean.Operation.getStrandMap op)) op)
+       LeanCPSA.Operation.addStrandMap (compressUpdate s s' (LeanCPSA.Operation.getStrandMap op)) op)
       k.krules k.pprob (updateProb perm k.prob) k.pov
 
 /-- Try to displace strand `s` onto `s'`, updating the environment.
@@ -3793,4 +3793,4 @@ def nodePairsOfSkel (k : Preskel) : List Pair :=
     (indxLookup e i2).map  fun idx2 =>
       ((s1, idx1), (s2, idx2))).getD []
 
-end Cpsa2Lean.Strand
+end LeanCPSA.Strand

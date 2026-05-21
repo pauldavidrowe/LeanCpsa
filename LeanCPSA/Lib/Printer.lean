@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Lib.Printer
+LeanCPSA.Lib.Printer
 
 Port of CPSA.Lib.Printer (MITRE cpsa v4.4.8).
 
@@ -31,10 +31,10 @@ The `loop` helpers from the Haskell `where` clauses are hoisted to
 standalone private functions and bundled in a single `mutual` block.
 -/
 
-import Cpsa2Lean.Lib.SExpr
-import Cpsa2Lean.Lib.Pretty
+import LeanCPSA.Lib.SExpr
+import LeanCPSA.Lib.Pretty
 
-namespace Cpsa2Lean.Lib
+namespace LeanCPSA.Lib
 
 open Pretty (str brk blo grp)
 
@@ -151,4 +151,4 @@ end
 def pp {α : Type} (margin indent : Int) (sexpr : SExpr α) : String :=
   Pretty.pr margin (prettyFmt indent sexpr)
 
-end Cpsa2Lean.Lib
+end LeanCPSA.Lib

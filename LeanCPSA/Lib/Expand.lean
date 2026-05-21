@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Lib.Expand
+LeanCPSA.Lib.Expand
 
 Port of CPSA.Lib.Expand (MITRE cpsa v4.4.8).
 
@@ -18,11 +18,11 @@ University of California.
 Reads all S-expressions from a handle and expands defmacro/include forms.
 -/
 
-import Cpsa2Lean.Lib.SExpr
+import LeanCPSA.Lib.SExpr
 
-namespace Cpsa2Lean.Lib
+namespace LeanCPSA.Lib
 
-open Cpsa2Lean.Lib  -- brings SExpr, Pos, PosHandle, load into scope
+open LeanCPSA.Lib  -- brings SExpr, Pos, PosHandle, load into scope
 
 -- ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -184,4 +184,4 @@ def expand (sexprs : List (SExpr Pos)) : IO (List (SExpr Pos)) := do
   let (_, result) ← sexprs.foldlM (expandSExpr bound) ([], [])
   return result.reverse
 
-end Cpsa2Lean.Lib
+end LeanCPSA.Lib

@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Characteristic
+LeanCPSA.Characteristic
 
 Port of CPSA.Characteristic (MITRE cpsa v4.4.8).
 
@@ -14,18 +14,18 @@ modify it under the terms of the BSD License as published by the
 University of California.
 -/
 
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Protocol
-import Cpsa2Lean.Operation
-import Cpsa2Lean.Strand
+import LeanCPSA.Algebra
+import LeanCPSA.Protocol
+import LeanCPSA.Operation
+import LeanCPSA.Strand
 
-namespace Cpsa2Lean.Characteristic
+namespace LeanCPSA.Characteristic
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Protocol
-open Cpsa2Lean.Operation (Node Pair Sid)
-open Cpsa2Lean.Strand
-open Cpsa2Lean.Lib (SExpr Pos assertError adjoin)
+open LeanCPSA.Algebra
+open LeanCPSA.Protocol
+open LeanCPSA.Operation (Node Pair Sid)
+open LeanCPSA.Strand
+open LeanCPSA.Lib (SExpr Pos assertError adjoin)
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -286,4 +286,4 @@ def characteristic (pos : Pos) (prot : Prot) (goals : List Goal) (g : Gen)
   else
     splitForm pos prot goals g antec comment
 
-end Cpsa2Lean.Characteristic
+end LeanCPSA.Characteristic

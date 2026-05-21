@@ -1,5 +1,5 @@
 /-
-Cpsa2Lean.Reduction
+LeanCPSA.Reduction
 
 Port of CPSA.Reduction (MITRE cpsa v4.4.8).
 
@@ -25,25 +25,25 @@ monad.
 The only exported entry point is `runSolver`.
 -/
 
-import Cpsa2Lean.Lib.Entry
-import Cpsa2Lean.Algebra
-import Cpsa2Lean.Protocol
-import Cpsa2Lean.Operation
-import Cpsa2Lean.Strand
-import Cpsa2Lean.Cohort
-import Cpsa2Lean.Displayer
-import Cpsa2Lean.Options
+import LeanCPSA.Lib.Entry
+import LeanCPSA.Algebra
+import LeanCPSA.Protocol
+import LeanCPSA.Operation
+import LeanCPSA.Strand
+import LeanCPSA.Cohort
+import LeanCPSA.Displayer
+import LeanCPSA.Options
 
-namespace Cpsa2Lean.Reduction
+namespace LeanCPSA.Reduction
 
-open Cpsa2Lean.Algebra
-open Cpsa2Lean.Protocol
-open Cpsa2Lean.Operation (Sid Operation Node)
-open Cpsa2Lean.Strand
-open Cpsa2Lean.Cohort (Mode ReduceRes unrealized reduce)
-open Cpsa2Lean.Displayer
-open Cpsa2Lean.Options (Options)
-open Cpsa2Lean.Lib (SExpr comment writeLnSExpr)
+open LeanCPSA.Algebra
+open LeanCPSA.Protocol
+open LeanCPSA.Operation (Sid Operation Node)
+open LeanCPSA.Strand
+open LeanCPSA.Cohort (Mode ReduceRes unrealized reduce)
+open LeanCPSA.Displayer
+open LeanCPSA.Options (Options)
+open LeanCPSA.Lib (SExpr comment writeLnSExpr)
 
 -- ── Module constants ──────────────────────────────────────────────────────────
 
@@ -687,4 +687,4 @@ def runSolver (opts : Options) (handle : IO.FS.Stream)
   let _ ← StateT.run (solve ks) initState
   pure ()
 
-end Cpsa2Lean.Reduction
+end LeanCPSA.Reduction
