@@ -1,4 +1,4 @@
-# cpsa2lean
+# LeanCPSA
 
 A Lean 4 port of the CPSA (Cryptographic Protocol Shapes Analyzer) Haskell
 codebase. This port made heavy use of Claude Code. It is known to pass the 
@@ -7,11 +7,11 @@ CPSA 4.4.8 test suite cleanly.
 ## Layout
 
 ```
-cpsa2lean/
+LeanCPSA/
 ├── lakefile.toml          # Lake package manifest
 ├── lean-toolchain         # Pinned Lean toolchain version
-├── Cpsa2Lean.lean         # Library root — re-exports submodules
-└── Cpsa2Lean/             # Library modules
+├── LeanCPSA.lean         # Library root — re-exports submodules
+└── LeanCPSA/             # Library modules
     └── Lib/
         └── Entry.lean     # Common entry point for possible other programs
         └── Expand.lean    # Expands macros
@@ -33,10 +33,7 @@ cpsa2lean/
     └── Reduction.lean     # Orchestrates the search
     └── Signature.lean     # Defines extensible algebra interface
     └── Strand.lean        # Core functionality
-├── Cpsa2Lean.lean         # Main project file
 ├── lake-manifest.json     # Package maintenance
-├── lakefile.toml          # Project settings
-├── lean-toolchain         # Pins project to Lean version
 ├── Main.lean              # Main entry point
 └── README.md              # This README file
 ```
@@ -52,9 +49,9 @@ lake build
 
 ## Adding modules
 
-Each new module lives under `Cpsa2Lean/` and must be re-exported from
+Each new module lives under `LeanCPSA/` and must be re-exported from
 
-`Cpsa2Lean.lean` with an `import` line.
+`LeanCPSA.lean` with an `import` line.
 
 ## TODO
 
