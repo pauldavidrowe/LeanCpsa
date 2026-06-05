@@ -7,3 +7,4 @@
 *.hash
 .DS_Store
 /tmp*
+/perf/
