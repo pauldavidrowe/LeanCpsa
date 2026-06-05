@@ -135,14 +135,14 @@ def outbnd : Event → Option ChMsg
 /-- True when the event is a location load (inbound channel-message with a location channel).
     Mirrors `evtIsLoad :: Event -> Bool`. -/
 def evtIsLoad : Event → Bool
-  | .In (.ChMsg ch _) => isLocn ch
-  | _                 => false
+  | .In (.ChMsg .Locn _ _) => true
+  | _                      => false
 
 /-- True when the event is a location store (outbound channel-message with a location channel).
     Mirrors `evtIsStor :: Event -> Bool`. -/
 def evtIsStor : Event → Bool
-  | .Out (.ChMsg ch _) => isLocn ch
-  | _                  => false
+  | .Out (.ChMsg .Locn _ _) => true
+  | _                       => false
 
 /-- True when the event is a state event (load or store).
     Mirrors `evtIsState :: Event -> Bool`. -/
@@ -501,36 +501,36 @@ inductive AgreeData where
 -- ── Agreement classifiers ─────────────────────────────────────────────────────
 
 private def divergeAgreeStore : Event → AgreeData
-  | .Out (.ChMsg ch2 _) => if isLocn ch2 then .FullStore else .HalfStore
-  | _                   => .HalfStore
+  | .Out (.ChMsg ct _ _) => if ct == .Locn then .FullStore else .HalfStore
+  | _                    => .HalfStore
 
 private def divergeAgreeOutChan : Event → AgreeData
-  | .Out (.ChMsg ch2 _) => if isLocn ch2 then .HalfStore else .NonStore
-  | _                   => .Disagree
+  | .Out (.ChMsg ct _ _) => if ct == .Locn then .HalfStore else .NonStore
+  | _                    => .Disagree
 
 private def divergeAgreeOutPlain : Event → AgreeData
-  | .Out (.ChMsg ch2 _) => if isLocn ch2 then .HalfStore else .Disagree
-  | .Out (.Plain _)     => .NonStore
-  | _                   => .Disagree
+  | .Out (.ChMsg ct _ _) => if ct == .Locn then .HalfStore else .Disagree
+  | .Out (.Plain _)      => .NonStore
+  | _                    => .Disagree
 
 private def divergeAgreeInChan : Event → AgreeData
-  | .Out (.ChMsg ch2 _) => if isLocn ch2 then .HalfStore else .Disagree
-  | .Out (.Plain _)     => .Disagree
-  | .In  (.ChMsg _ _)   => .NonStore
-  | _                   => .Disagree
+  | .Out (.ChMsg ct _ _) => if ct == .Locn then .HalfStore else .Disagree
+  | .Out (.Plain _)      => .Disagree
+  | .In  (.ChMsg _ _ _)  => .NonStore
+  | _                    => .Disagree
 
 private def divergeAgreeInPlain : Event → AgreeData
-  | .Out (.ChMsg ch2 _) => if isLocn ch2 then .HalfStore else .Disagree
-  | .In  (.Plain _)     => .NonStore
-  | _                   => .Disagree
+  | .Out (.ChMsg ct _ _) => if ct == .Locn then .HalfStore else .Disagree
+  | .In  (.Plain _)      => .NonStore
+  | _                    => .Disagree
 
 /-- Classify whether two events agree, from the perspective of the first event.
     Mirrors `divergeEventsAgree :: Event -> Event -> AgreeData`. -/
 def divergeEventsAgree : Event → Event → AgreeData
-  | .Out (.ChMsg ch1 _), e2 => if isLocn ch1 then divergeAgreeStore e2 else divergeAgreeOutChan e2
-  | .Out _,              e2 => divergeAgreeOutPlain e2
-  | .In  (.ChMsg _ _),   e2 => divergeAgreeInChan e2
-  | .In  _,              e2 => divergeAgreeInPlain e2
+  | .Out (.ChMsg ct _ _), e2 => if ct == .Locn then divergeAgreeStore e2 else divergeAgreeOutChan e2
+  | .Out _,               e2 => divergeAgreeOutPlain e2
+  | .In  (.ChMsg _ _ _),  e2 => divergeAgreeInChan e2
+  | .In  _,               e2 => divergeAgreeInPlain e2
 
 -- ── VarTrail and helpers ──────────────────────────────────────────────────────
 

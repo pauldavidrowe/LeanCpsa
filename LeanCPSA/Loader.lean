@@ -171,20 +171,20 @@ private def notListenerPrefix : Trace → Bool
     Mirrors `locnsUnique :: Trace -> Bool`. -/
 private def locnsUnique : Trace → Bool
   | [] => true
-  | .In (.ChMsg ch _) :: c' =>
-      if isLocn ch then
+  | .In (.ChMsg ct ch _) :: c' =>
+      if ct == .Locn then
         let rec checkLoads (seen : List Term) : Trace → Bool
-          | .In (.ChMsg ch _) :: c'' =>
-              if isLocn ch then !seen.contains ch && checkLoads (ch :: seen) c''
+          | .In (.ChMsg ct ch _) :: c'' =>
+              if ct == .Locn then !seen.contains ch && checkLoads (ch :: seen) c''
               else locnsUnique c''
           | c'' => locnsUnique c''
         checkLoads [ch] c'
       else locnsUnique c'
-  | .Out (.ChMsg ch _) :: c' =>
-      if isLocn ch then
+  | .Out (.ChMsg ct ch _) :: c' =>
+      if ct == .Locn then
         let rec checkStores (seen : List Term) : Trace → Bool
-          | .Out (.ChMsg ch _) :: c'' =>
-              if isLocn ch then !seen.contains ch && checkStores (ch :: seen) c''
+          | .Out (.ChMsg ct ch _) :: c'' =>
+              if ct == .Locn then !seen.contains ch && checkStores (ch :: seen) c''
               else locnsUnique c''
           | c'' => locnsUnique c''
         checkStores [ch] c'
@@ -243,18 +243,18 @@ private def transitionIndices (c : Trace) : List (Int × Int) :=
   let rec subseqSend (j : Int) (ch : Term) : Trace → Option Int
     | [] => none
     | .In _ :: c' => subseqSend (j + 1) ch c'
-    | .Out (.ChMsg ch' _) :: c' =>
+    | .Out (.ChMsg ct ch' _) :: c' =>
         if ch == ch' then some j
-        else if isLocn ch' then subseqSend (j + 1) ch c'
+        else if ct == .Locn then subseqSend (j + 1) ch c'
         else none
     | _ :: _ => none
   let rec loop (soFar : List (Int × Int)) (i : Int) : Trace → List (Int × Int)
     | [] => soFar.reverse
-    | .Out (.ChMsg ch _) :: c' =>
-        if isLocn ch then loop ((i, i) :: soFar) (i + 1) c'
+    | .Out (.ChMsg ct _ _) :: c' =>
+        if ct == .Locn then loop ((i, i) :: soFar) (i + 1) c'
         else loop soFar (i + 1) c'
-    | .In (.ChMsg ch _) :: c' =>
-        if isLocn ch then
+    | .In (.ChMsg ct ch _) :: c' =>
+        if ct == .Locn then
           match subseqSend (i + 1) ch c' with
           | some j => loop ((i, j) :: soFar) (i + 1) c'
           | none   => loop soFar (i + 1) c'
@@ -268,8 +268,8 @@ mutual
 
 partial def stateSegs_findLower
     (soFar : List (Int × Int)) (i j : Int) : Trace → List (Int × Int)
-  | .In (.ChMsg ch _) :: c' =>
-      if isLocn ch then stateSegs_findLower soFar i (j + 1) c'
+  | .In (.ChMsg ct _ _) :: c' =>
+      if ct == .Locn then stateSegs_findLower soFar i (j + 1) c'
       else stateSegs_findSegments ((i, j - 1) :: soFar) (j + 1) c'
   | .In _ :: c' => stateSegs_findSegments ((i, j - 1) :: soFar) (j + 1) c'
   | c'@(.Out _ :: _) => stateSegs_findUpper soFar i j c'
@@ -277,8 +277,8 @@ partial def stateSegs_findLower
 
 partial def stateSegs_findUpper
     (soFar : List (Int × Int)) (i j : Int) : Trace → List (Int × Int)
-  | .Out (.ChMsg ch _) :: c' =>
-      if isLocn ch then stateSegs_findUpper soFar i (j + 1) c'
+  | .Out (.ChMsg ct _ _) :: c' =>
+      if ct == .Locn then stateSegs_findUpper soFar i (j + 1) c'
       else stateSegs_findSegments ((i, j - 1) :: soFar) (j + 1) c'
   | .Out _ :: c' => stateSegs_findSegments ((i, j - 1) :: soFar) (j + 1) c'
   | c'@(.In _ :: _) => stateSegs_findSegments ((i, j - 1) :: soFar) j c'
@@ -287,11 +287,11 @@ partial def stateSegs_findUpper
 partial def stateSegs_findSegments
     (soFar : List (Int × Int)) (i : Int) : Trace → List (Int × Int)
   | [] => soFar
-  | .In (.ChMsg ch _) :: c' =>
-      if isLocn ch then stateSegs_findLower soFar i (i + 1) c'
+  | .In (.ChMsg ct _ _) :: c' =>
+      if ct == .Locn then stateSegs_findLower soFar i (i + 1) c'
       else stateSegs_findSegments soFar (i + 1) c'
-  | .Out (.ChMsg ch _) :: c' =>
-      if isLocn ch then stateSegs_findUpper soFar i (i + 1) c'
+  | .Out (.ChMsg ct _ _) :: c' =>
+      if ct == .Locn then stateSegs_findUpper soFar i (i + 1) c'
       else stateSegs_findSegments soFar (i + 1) c'
   | _ :: c' => stateSegs_findSegments soFar (i + 1) c'
 
@@ -455,26 +455,26 @@ private def loadTrace (sig : Sig) (name : String) (gen : Gen) (vars : List Term)
     | .lst _ [.sym _ "recv", ch, t] :: more => do
         let ch ← loadChan sig vars ch
         let t  ← loadTerm sig vars false t
-        loadTraceLoop gen newVars uniqs pr (.In (.ChMsg ch t) :: events) more
+        loadTraceLoop gen newVars uniqs pr (.In (.ChMsg .Chan ch t) :: events) more
     -- send (channel)
     | .lst _ [.sym _ "send", ch, t] :: more => do
         let ch ← loadChan sig vars ch
         let t  ← loadTerm sig vars true t
-        loadTraceLoop gen newVars uniqs pr (.Out (.ChMsg ch t) :: events) more
+        loadTraceLoop gen newVars uniqs pr (.Out (.ChMsg .Chan ch t) :: events) more
     -- load (state)
     | .lst _ [.sym pos "load", ch, t] :: more => do
         let ch ← loadLocn sig vars ch
         let t  ← loadTerm sig vars false t
         let (gen', pt, pt_t) ← loadLocnTerm sig gen (.sym pos "pt") (.sym pos "pval") t
         loadTraceLoop gen' (pt :: newVars) uniqs pr
-          (.In (.ChMsg ch pt_t) :: events) more
+          (.In (.ChMsg .Locn ch pt_t) :: events) more
     -- stor (state)
     | .lst _ [.sym pos "stor", ch, t] :: more => do
         let ch ← loadLocn sig vars ch
         let t  ← loadTerm sig vars true t
         let (gen', pt, pt_t) ← loadLocnTerm sig gen (.sym pos "pt") (.sym pos "pval") t
         loadTraceLoop gen' (pt :: newVars) (pt :: uniqs) pr
-          (.Out (.ChMsg ch pt_t) :: events) more
+          (.Out (.ChMsg .Locn ch pt_t) :: events) more
     -- rely
     | .lst _ [.sym pos "rely", form] :: more =>
         match events with
@@ -550,7 +550,7 @@ private def mkListenerRole (sig : Sig) (pos : Pos) (g : Gen) : Except String (Ge
 /-- True if the role uses any location channel.
     Mirrors `hasLocn :: Role -> Bool`. -/
 private def hasLocn (rl : Role) : Bool :=
-  (tchans rl.rtrace).any isLocn
+  rl.rtrace.any evtIsLoad
 
 -- ── varsUsedBy ───────────────────────────────────────────────────────────────
 
@@ -678,8 +678,8 @@ private def loadRole (sig : Sig) (gen : Gen) (pos : Pos) (xs : List (SExpr Pos))
       let u   ← loadBaseTerms    sig vars' (assoc "uniq-orig"    rest)
       let gts ← loadBaseTerms    sig vars' (assoc "uniq-gen"     rest)
       let b   ← (assoc "absent" rest).mapM (loadAbsent sig vars')
-      let d   ← loadBaseTerms    sig vars' (assoc "conf"         rest)
-      let h   ← loadBaseTerms    sig vars' (assoc "auth"         rest)
+      let d   ← loadTerms        sig vars' (assoc "conf"         rest)
+      let h   ← loadTerms        sig vars' (assoc "auth"         rest)
       let cs  ← loadCritSecs (assoc "critical-sections" rest)
       let genstates := assoc "gen-st"  rest
       let facts     := assoc "facts"   rest
@@ -694,7 +694,7 @@ private def loadRole (sig : Sig) (gen : Gen) (pos : Pos) (xs : List (SExpr Pos))
         .error s!"{pos}Terms in role not well formed"
       if !(d ++ h).all isChan then
         .error s!"{pos}Bad channel in role"
-      let f v := ts.any (occursIn v) || (tchans c').any (· == v)
+      let f v := ts.any (occursIn v) || (varsInTerms (tchans c')).any (· == v)
       let vs  := vars'.filter f
       let ns  := n.filter  (fun (_, t) => varsSeen vs t)
       let as' := a.filter  (fun (_, t) => varsSeen vs t)
@@ -975,8 +975,8 @@ private def loadRest (sig : Sig) (pos : Pos) (vars : List Term) (p : Prot)
   let ug'  ← loadBaseTerms sig vars ug
   let ab'  ← ab.mapM (loadAbsent sig vars)
   let pr'  ← pr.mapM (loadNode heights)
-  let cn'  ← loadBaseTerms sig vars cn
-  let au'  ← loadBaseTerms sig vars au
+  let cn'  ← loadTerms sig vars cn
+  let au'  ← loadTerms sig vars au
   let fs'  ← fs.mapM (loadFact sig heights vars)
   let lds  ← loadOrderings heights leads
   let genSts' ← loadTerms sig vars genSts
@@ -1087,6 +1087,49 @@ private def findGoal (pos : Pos) (ps : List Prot) (xs : List (SExpr Pos))
           characteristic pos p (goal :: goals) g' antec kcomment
   | _ => .error s!"{pos}Malformed goal"
 
+-- ── deflemma helpers ──────────────────────────────────────────────────────────
+
+/-- True when the lemma flag requests a check (goal) query.
+    Mirrors `lemmaCheck :: String -> Bool`. -/
+private def lemmaCheck (flag : String) : Bool :=
+  flag == "both" || flag == "goal"
+
+/-- True when the lemma flag requests a rule (use).
+    Mirrors `lemmaUse :: String -> Bool`. -/
+private def lemmaUse (flag : String) : Bool :=
+  flag == "both" || flag == "rule"
+
+/-- Add a rule derived from a lemma to a protocol, placing it in the
+    correct bucket (nullary/unary/general).
+    Mirrors `addRule :: MonadFail m => Sig -> Gen -> Pos -> Prot -> SExpr Pos
+             -> [SExpr Pos] -> Bool -> m Prot`. -/
+private def addLemmaRule (sig : Sig) (g : Gen) (pos : Pos) (p : Prot)
+    (lname : SExpr Pos) (xs : List (SExpr Pos)) (checked : Bool)
+    : Except String Prot := do
+  let (_, r) ← loadRule sig p g pos (lname :: xs)
+  let comment := if checked
+    then .sym () "(comment Lemma has associated query)" :: r.rlcomment
+    else .sym () "(comment Lemma not checked)"         :: r.rlcomment
+  let r1 := { r with rlcomment := comment }
+  let p1 := { p with userrules := r1 :: p.userrules }
+  match classifyRule r1 with
+  | .NullaryRule => .ok { p1 with nullaryrules := r1 :: p1.nullaryrules }
+  | .UnaryRule   => .ok { p1 with unaryrules   := r1 :: p1.unaryrules   }
+  | .GeneralRule => .ok { p1 with generalrules := r1 :: p1.generalrules }
+
+/-- Find the named protocol and add a lemma rule to it.
+    Mirrors `findProt :: MonadFail m => Sig -> Gen -> Pos -> [Prot] -> SExpr Pos
+             -> SExpr Pos -> [SExpr Pos] -> Bool -> m Prot`. -/
+private def findProt (sig : Sig) (g : Gen) (pos : Pos) (ps : List Prot)
+    (lname : SExpr Pos) (protName : SExpr Pos) (xs : List (SExpr Pos))
+    (checked : Bool) : Except String Prot :=
+  match protName with
+  | .sym _ name =>
+      match ps.find? (fun p => name == p.pname) with
+      | none   => .error s!"{pos}Protocol {name} unknown"
+      | some p => addLemmaRule sig g pos p lname xs checked
+  | _ => .error s!"{pos}Malformed lemma"
+
 -- ── loadSExpr / loadSExprs ────────────────────────────────────────────────────
 
 /-- Load one top-level S-expression form.
@@ -1105,6 +1148,24 @@ private def loadSExpr (sig : Sig) (nom : String) (origin : Gen)
   | .lst pos (.sym _ "defgoal" :: xs) => do
       let k ← findGoal pos ps xs
       .ok (ps, k :: ks)
+  | .lst pos (.sym _ "deflemma" :: .sym _ flag :: lname :: protName :: xs) => do
+      let doCheck := lemmaCheck flag
+      let doUse   := lemmaUse   flag
+      if !doCheck && !doUse then
+        .error s!"{pos}lemma flag \"{flag}\" unknown. Must be \"goal\", \"rule\", or \"both\""
+      -- Attach a comment identifying the lemma name
+      let lcomment := .lst pos [.sym pos "comment", .sym pos "Lemma:", lname]
+      -- Optionally add the lemma as a goal to be checked
+      let ks' ← if doCheck then
+        let k ← findGoal pos ps (protName :: (xs ++ [lcomment]))
+        .ok (k :: ks)
+      else .ok ks
+      -- Optionally add the lemma as a rule into the protocol
+      let ps' ← if doUse then do
+        let p ← findProt sig origin pos ps lname protName xs doCheck
+        .ok (p :: ps)
+      else .ok ps
+      .ok (ps', ks')
   | .lst _ (.sym _ "comment" :: _) => .ok (ps, ks)
   | .lst _ (.sym _ "herald"  :: _) => .ok (ps, ks)
   | _ => .error s!"{x.annotation}Malformed input"

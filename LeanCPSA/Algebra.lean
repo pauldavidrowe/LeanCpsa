@@ -438,15 +438,35 @@ def isVar : Term → Bool
   | .G g        => isGroupVar g
   | _           => false
 
-/-- True when `t` is a channel variable. -/
+/-- True when `t` can occupy a channel position (any compound/variable/const term).
+    Mirrors `isChan :: Term -> Bool` (v4.4.9 broadened semantics). -/
 def isChan : Term → Bool
-  | .F .Chan [.I _] => true
-  | _               => false
+  | .F _ _  => true
+  | .G _    => true
+  | .C _    => true
+  | .I _    => true
+  | _       => false
 
-/-- True when `t` is a location variable. -/
+/-- True when `t` is specifically a Chan-sorted term.
+    Mirrors `isChanSort :: Term -> Bool`. -/
+def isChanSort : Term → Bool
+  | .F .Chan _ => true
+  | _          => false
+
+/-- True when `t` can occupy a location position (any compound/variable/const term).
+    Mirrors `isLocn :: Term -> Bool` (v4.4.9 broadened semantics). -/
 def isLocn : Term → Bool
-  | .F .Locn [.I _] => true
-  | _               => false
+  | .F _ _  => true
+  | .G _    => true
+  | .C _    => true
+  | .I _    => true
+  | _       => false
+
+/-- True when `t` is specifically a Locn-sorted term.
+    Mirrors `isLocnSort :: Term -> Bool`. -/
+def isLocnSort : Term → Bool
+  | .F .Locn _ => true
+  | _          => false
 
 /-- True when `t` is a strand variable (`D x`). -/
 def isStrdVar : Term → Bool
@@ -800,6 +820,8 @@ mutual
   private partial def termWellFormed (xts : VarEnv) : Term → Option VarEnv
     | t@(.I x)                                   => extendVarEnv xts x t
     | t@(.F (.Data _) [.I x])                    => extendVarEnv xts x t
+    | t@(.F .Locn [.I x])                        => extendVarEnv xts x t  -- Locn var as term
+    | t@(.F .Chan [.I x])                        => extendVarEnv xts x t  -- Chan var as term
     | .F (.Data "skey") [.F .Ltk  [.I x, .I y]] =>
         [.F .Name [.I x], .F .Name [.I y]].foldlM termWellFormed xts
     | .F (.Data "skey") [.F .Bltk [.I x, .I y]] =>

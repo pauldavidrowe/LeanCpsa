@@ -64,10 +64,10 @@ structure Sig where
   deriving Repr, BEq, DecidableEq
 
 /-- The default signature used when no `(lang ...)` form is supplied in a
-    CPSA input: four atom sorts (`text`, `data`, `skey`, `akey`), one akey
+    CPSA input: five atom sorts (`text`, `data`, `skey`, `akey`, `dev`), one akey
     sort (`akey`), and two operators (`enc`, `hash`). -/
 def defaultSig : Sig :=
-  { atoms := ["text", "data", "skey", "akey"],
+  { atoms := ["text", "data", "skey", "akey", "dev"],
     akeys := ["akey"],
     opers := [.enc "enc", .hash "hash"] }
 

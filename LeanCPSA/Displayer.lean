@@ -273,13 +273,13 @@ def displayGenRule : Rule → SExpr Unit := displayRule "defgenrule"
     Mirrors the inner `displayDt` in `displayTrace`. -/
 private def displayEvent (ctx : Context) : Event → SExpr Unit
   | .In  (.Plain t)     => .lst () [.sym () "recv", displayTerm ctx t]
-  | .In  (.ChMsg ch t)  =>
-      if isLocn ch then .lst () [.sym () "load", displayTerm ctx ch, displayTerm ctx t]
-      else              .lst () [.sym () "recv", displayTerm ctx ch, displayTerm ctx t]
+  | .In  (.ChMsg ct ch t)  =>
+      if ct == .Locn then .lst () [.sym () "load", displayTerm ctx ch, displayTerm ctx t]
+      else                .lst () [.sym () "recv", displayTerm ctx ch, displayTerm ctx t]
   | .Out (.Plain t)     => .lst () [.sym () "send", displayTerm ctx t]
-  | .Out (.ChMsg ch t)  =>
-      if isLocn ch then .lst () [.sym () "stor", displayTerm ctx ch, displayTerm ctx t]
-      else              .lst () [.sym () "send", displayTerm ctx ch, displayTerm ctx t]
+  | .Out (.ChMsg ct ch t)  =>
+      if ct == .Locn then .lst () [.sym () "stor", displayTerm ctx ch, displayTerm ctx t]
+      else                .lst () [.sym () "send", displayTerm ctx ch, displayTerm ctx t]
 
 /-- Display a trace as S-expressions.
     Mirrors `displayTrace :: Context -> Trace -> [SExpr ()]`. -/
@@ -291,12 +291,12 @@ def displayTrace (ctx : Context) (trace : Trace) : List (SExpr Unit) :=
 def displayTraceNoPt (ctx : Context) (trace : Trace) : List (SExpr Unit) :=
   trace.map fun e =>
     match e with
-    | .In  (.ChMsg ch t) =>
-        if isLocn ch then .lst () [.sym () "load", displayTerm ctx ch, displayTermNoPt ctx t]
-        else              .lst () [.sym () "recv", displayTerm ctx ch, displayTerm ctx t]
-    | .Out (.ChMsg ch t) =>
-        if isLocn ch then .lst () [.sym () "stor", displayTerm ctx ch, displayTermNoPt ctx t]
-        else              .lst () [.sym () "send", displayTerm ctx ch, displayTerm ctx t]
+    | .In  (.ChMsg ct ch t) =>
+        if ct == .Locn then .lst () [.sym () "load", displayTerm ctx ch, displayTermNoPt ctx t]
+        else               .lst () [.sym () "recv", displayTerm ctx ch, displayTerm ctx t]
+    | .Out (.ChMsg ct ch t) =>
+        if ct == .Locn then .lst () [.sym () "stor", displayTerm ctx ch, displayTermNoPt ctx t]
+        else               .lst () [.sym () "send", displayTerm ctx ch, displayTerm ctx t]
     | ev                 => displayEvent ctx ev
 
 -- ── displayRole ───────────────────────────────────────────────────────────────
@@ -387,7 +387,7 @@ def displayInst (ctx : Context) (inst : Instance) : SExpr Unit :=
     Mirrors `displayCmt :: Context -> CMT -> SExpr ()`. -/
 def displayCmt (ctx : Context) : CMT → SExpr Unit
   | .CM (.Plain t)    => displayTerm ctx t
-  | .CM (.ChMsg ch t) => .lst () [.sym () "ch-msg", displayTerm ctx ch, displayTerm ctx t]
+  | .CM (.ChMsg _ ch t) => .lst () [.sym () "ch-msg", displayTerm ctx ch, displayTerm ctx t]
   | .TM t             => displayTerm ctx t
 
 /-- Display a `CMT` after extending the context with its constituent terms.

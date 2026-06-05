@@ -106,15 +106,15 @@ instance : Inhabited (Sum Int Int) := ⟨.inl 0⟩
 private def lastRecvOrFirstSendInCS (rl : Role) (start : Int) (endIdx : Int)
     : Sum Int Int :=
   let rec loopLeft (i : Int) : List Event → Sum Int Int
-    | .In (.ChMsg ch _) :: c =>
-        if i <= endIdx && isLocn ch then loopLeft (i + 1) c else .inl i
+    | .In (.ChMsg ct _ _) :: c =>
+        if i <= endIdx && ct == .Locn then loopLeft (i + 1) c else .inl i
     | _ => .inl i
   match rl.rtrace.drop start.toNat with
-  | .In (.ChMsg ch _) :: c =>
-      if start <= endIdx && isLocn ch then loopLeft start c
+  | .In (.ChMsg ct _ _) :: c =>
+      if start <= endIdx && ct == .Locn then loopLeft start c
       else assertError s!"lastRecvOrFirstSendInCS: {rl.rname} at {start} should be a state event"
-  | .Out (.ChMsg ch _) :: _ =>
-      if start <= endIdx && isLocn ch then .inr start
+  | .Out (.ChMsg ct _ _) :: _ =>
+      if start <= endIdx && ct == .Locn then .inr start
       else assertError s!"lastRecvOrFirstSendInCS: {rl.rname} at {start} should be a state event"
   | _ =>
       assertError s!"lastRecvOrFirstSendInCS: {rl.rname} at {start} should be a state event"

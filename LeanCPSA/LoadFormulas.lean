@@ -121,7 +121,7 @@ inductive Mode where
 private def loadAlgTerm (sig : Sig) (ts : List Term)
     (x : SExpr Pos) : Except String Term := do
   let t ← loadTerm sig ts false x
-  if isStrdVar t || isIndxVar t || isIndxConst t || isChan t || isLocn t then
+  if isStrdVar t || isIndxVar t || isIndxConst t then
     .error s!"{x.annotation}Expecting an algebra term"
   else .ok t
 

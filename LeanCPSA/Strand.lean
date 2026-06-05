@@ -804,8 +804,8 @@ def preskelWellFormed (k : Preskel) : Bool :=
   k.kuniqgen.all (fun t => terms.any (constituentModInv t)) &&
   k.kabsent.all  (fun (x, y) => varSubset [x, y] vs && x != y) &&
   k.kgenSt.all   (fun t => foldVars (fun b v => b && vs.contains v) true t) &&
-  k.kconf.all    (fun c => vs.contains c) &&
-  k.kauth.all    (fun c => vs.contains c) &&
+  k.kconf.all    (fun c => foldVars (fun b v => b && vs.contains v) true c) &&
+  k.kauth.all    (fun c => foldVars (fun b v => b && vs.contains v) true c) &&
   wellOrdered k && acyclicOrder k &&
   roleOrigCheck k &&
   roleGenCheck k
@@ -2033,6 +2033,8 @@ def validateEnv (k k' : Preskel) (mapping : List Sid) (ge : GenEnv) : List GenEn
      k.kunique.all (fun t => k'.kunique.contains (instantiate env t)) &&
      k.kuniqgen.all (fun t => k'.kuniqgen.contains (instantiate env t)) &&
      k.kabsent.all (fun p => k'.kabsent.contains (instantiatePair env p)) &&
+     k.kauth.all   (fun t => k'.kauth.contains   (instantiate env t)) &&
+     k.kconf.all   (fun t => k'.kconf.contains   (instantiate env t)) &&
      k.kgenSt.all  (fun t => k'.kgenSt.contains  (instantiate env t)) &&
      validateEnvOrig k k' mapping env &&
      ordOk &&
@@ -2056,8 +2058,8 @@ inductive Dir where | Send | Recv
 /-- True when `cm` is a channel message whose channel is a location.
     Mirrors `isStateChMsg :: ChMsg -> Bool`. -/
 private def isStateChMsg : ChMsg → Bool
-  | .Plain _    => false
-  | .ChMsg ch _ => isLocn ch
+  | .Plain _         => false
+  | .ChMsg ct _ _    => ct == .Locn
 
 /-- The direction and channel message at a node, if any.
     Mirrors `dirChMsgOfNode :: Node -> Preskel -> Maybe (Dir, ChMsg)`. -/
@@ -2427,7 +2429,7 @@ private def changeLocations (k : Preskel) (env : Env) (gen : Gen)
     Mirrors `separateVariable :: Preskel -> [(Term, Location)] -> Term -> [Candidate]`. -/
 private def separateVariable (k : Preskel) (ps : List (Term × Location))
     (t : Term) : List Candidate :=
-  if isChan t || isLocn t || isExpr t then []
+  if isChanSort t || isLocnSort t || isExpr t then []
   else
     let locs := locsFor ps t
     if locs.length <= 1 then []
@@ -2696,9 +2698,10 @@ private def dirMsgMatch (p p' : Node) : Sem := fun k ge =>
       | none | some (.Send, _) => []
       | some (.Recv, cm') =>
           match cm, cm' with
-          | .Plain _, .ChMsg _ _ | .ChMsg _ _, .Plain _ => []
-          | .Plain m,    .Plain m'    => if m == m' then [ge] else []
-          | .ChMsg c m,  .ChMsg c' m' => if c == c' && m == m' then [ge] else []
+          | .Plain _, .ChMsg _ _ _ | .ChMsg _ _ _, .Plain _ => []
+          | .Plain m,        .Plain m'          => if m == m' then [ge] else []
+          | .ChMsg ct c m,   .ChMsg ct' c' m'   =>
+              if ct != ct' || c != c' || m != m' then [] else [ge]
 
 /-- Communication-pair predicate.
     Mirrors `gcommpair :: NodeTerm -> NodeTerm -> Sem`. -/
@@ -2722,8 +2725,9 @@ private def gcommpair (n n' : NodeTerm) : Sem := fun k ge =>
     Mirrors `nodeLocn :: Node -> Preskel -> [Term]`. -/
 private def nodeLocn (p : Node) (k : Preskel) : List Term :=
   match dirChMsgOfNode p k with
-  | none | some (_, .Plain _) => []
-  | some (_, .ChMsg c _)      => if isLocn c then [c] else []
+  | none | some (_, .Plain _)          => []
+  | some (_, .ChMsg .Chan _ _)         => []
+  | some (_, .ChMsg .Locn c _)         => [c]
 
 private def glocnSem (n : NodeTerm) (k : Preskel) (ge : GenEnv) : List (Term × GenEnv) :=
   match nodeLookup ge.2 n with
@@ -3231,9 +3235,10 @@ private def urcommpair (rule : String) (n n' : NodeTerm) : URewrite := fun k ge 
               | none | some (.Send, _) => .none
               | some (.Recv, cm') =>
                   match cm, cm' with
-                  | .Plain _, .ChMsg _ _ | .ChMsg _ _, .Plain _ => .none
-                  | .Plain m,   .Plain m'   => ureq rule m m' k ge
-                  | .ChMsg c m, .ChMsg c' m' =>
+                  | .Plain _, .ChMsg _ _ _ | .ChMsg _ _ _, .Plain _ => .none
+                  | .Plain m,        .Plain m'          => ureq rule m m' k ge
+                  | .ChMsg ct c m,   .ChMsg ct' c' m'   =>
+                      if ct != ct' then .none else
                       match ureq rule c c' k ge with
                       | .none | .failing _ => .none
                       | .some (k', ge')    => ureq rule m m' k' ge'
@@ -3525,9 +3530,10 @@ private def rcommpair (rule : String) (n n' : NodeTerm) : Rewrite := fun k ge =>
               | none | some (.Send, _) => []
               | some (.Recv, cm') =>
                   match cm, cm' with
-                  | .Plain _, .ChMsg _ _ | .ChMsg _ _, .Plain _ => []
-                  | .Plain m,   .Plain m'   => req rule m m' k ge
-                  | .ChMsg c m, .ChMsg c' m' =>
+                  | .Plain _, .ChMsg _ _ _ | .ChMsg _ _ _, .Plain _ => []
+                  | .Plain m,        .Plain m'          => req rule m m' k ge
+                  | .ChMsg ct c m,   .ChMsg ct' c' m'   =>
+                      if ct != ct' then [] else
                       (req rule c c' k ge).flatMap fun (k, ge) =>
                         req rule m m' k ge
 
@@ -3731,21 +3737,20 @@ def showPreskelUnselectively (k : Preskel) : String :=
 /-- True when `e` is sent on a confidential channel.
     Mirrors `confCm :: Preskel -> ChMsg -> Bool`. -/
 def confCm (k : Preskel) (e : ChMsg) : Bool :=
-  match cmChan e with
-  | some ch => k.kconf.contains ch || isLocn ch
-  | none    => false
+  match e with
+  | .ChMsg ct ch _ => k.kconf.contains ch || ct == .Locn
+  | .Plain _       => false
 
 /-- True when `e` is sent on an authenticated channel.
     Mirrors `authCm :: Preskel -> ChMsg -> Bool`. -/
 def authCm (k : Preskel) (e : ChMsg) : Bool :=
-  match cmChan e with
-  | some ch =>
+  match e with
+  | .ChMsg ct ch t =>
     k.kauth.contains ch ||
-    (isLocn ch &&
-      let t := cmTerm e
-      k.kgenSt.contains t ||
-        (isLocnMsg t && k.kgenSt.contains (locnMsgPayload t)))
-  | none => false
+    (ct == .Locn &&
+      (k.kgenSt.contains t ||
+        (isLocnMsg t && k.kgenSt.contains (locnMsgPayload t))))
+  | .Plain _ => false
 
 -- ── verbosePreskelWellFormed ──────────────────────────────────────────────────
 
@@ -3768,8 +3773,10 @@ def verbosePreskelWellFormed (k : Preskel) : Except String Unit := do
     failwith "absent: first term not in strand"  (vs.contains x)
     failwith "absent: second term not in strand" (varSubset [y] vs)
   k.kgenSt.forM  fun t => failwith "gen-st not carried"          (terms.any (carriedBy t))
-  k.kconf.forM   fun c => failwith "confidential channel not in strand" (vs.contains c)
-  k.kauth.forM   fun c => failwith "authenticated channel not in strand" (vs.contains c)
+  k.kconf.forM   fun c => failwith "some variable in confidential channel not in some strand"
+                            (foldVars (fun b v => b && vs.contains v) true c)
+  k.kauth.forM   fun c => failwith "some variable in authenticated channel not in some strand"
+                            (foldVars (fun b v => b && vs.contains v) true c)
   failwith "ordered pairs not well formed"                       (wellOrdered k)
   failwith "cycle found in ordered pairs"                        (acyclicOrder k)
   failwith "an inherited unique doesn't originate in its strand" (roleOrigCheck k)

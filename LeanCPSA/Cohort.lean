@@ -497,7 +497,7 @@ private def addListeners (k : Preskel) (ct : CMT) (pos : Place) (eks : List Term
   let keys := RBSet.toList (escapeKeys eks escape)
   (keys.filter fun t' =>
     match t with
-    | .ChMsg _ _ => true
+    | .ChMsg _ _ _ => true
     | .Plain tP  => tP != t').flatMap fun t' =>
     (addListener k n cause t').flatMap fun (k', n', phi, subst') =>
       if maybeSolved ct pos eks escape k' n' subst' k.kabsent then [(k', phi)] else []
