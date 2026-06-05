@@ -2,7 +2,7 @@
 
 A Lean 4 port of the CPSA (Cryptographic Protocol Shapes Analyzer) Haskell
 codebase. This port made heavy use of Claude Code. It is known to pass the 
-CPSA 4.4.8 test suite cleanly.
+CPSA 4.4.9 test suite cleanly.
 
 ## Layout
 

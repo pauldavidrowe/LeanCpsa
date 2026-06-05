@@ -6,3 +6,4 @@
 *.trace
 *.hash
 .DS_Store
+/tmp*
