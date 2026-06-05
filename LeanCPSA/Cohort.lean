@@ -1,9 +1,9 @@
 /-
 LeanCPSA.Cohort
 
-Port of CPSA.Cohort (MITRE cpsa v4.4.8).
+Port of CPSA.Cohort (MITRE cpsa).
 
-Copyright (c) 2026 Paul D. Rowe 
+Copyright (c) 2026 Paul D. Rowe
 
 Computes the cohort associated with a skeleton or its generalization.
 

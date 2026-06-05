@@ -1,7 +1,7 @@
 /-
 LeanCPSA.Reduction
 
-Port of CPSA.Reduction (MITRE cpsa v4.4.8).
+Port of CPSA.Reduction (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 

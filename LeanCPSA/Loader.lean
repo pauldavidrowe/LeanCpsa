@@ -1,7 +1,7 @@
 /-
 LeanCPSA.Loader
 
-Port of CPSA.Loader (MITRE cpsa v4.4.8).
+Port of CPSA.Loader (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 

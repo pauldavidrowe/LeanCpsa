@@ -1,9 +1,9 @@
 /-
 LeanCPSA.Displayer
 
-Port of CPSA.Displayer (MITRE cpsa v4.4.8).
+Port of CPSA.Displayer (MITRE cpsa).
 
-Copyright (c) 2026 Paul D. Rowe 
+Copyright (c) 2026 Paul D. Rowe
 
 Displays protocols and preskeletons as S-expressions.
 

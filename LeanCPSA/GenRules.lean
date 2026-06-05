@@ -1,7 +1,7 @@
 /-
 LeanCPSA.GenRules
 
-Port of CPSA.GenRules (MITRE cpsa v4.4.8).
+Port of CPSA.GenRules (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 

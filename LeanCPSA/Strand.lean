@@ -1,9 +1,9 @@
 /-
 LeanCPSA.Strand
 
-Port of CPSA.Strand (MITRE cpsa v4.4.8).
+Port of CPSA.Strand (MITRE cpsa).
 
-Copyright (c) 2026 Paul D. Rowe 
+Copyright (c) 2026 Paul D. Rowe
 
 Instance and preskeleton data structures and support functions.
 
@@ -816,12 +816,6 @@ def preskelWellFormed (k : Preskel) : Bool :=
 def traceWellFormed (k : Preskel) : Bool :=
   !useWellFormedTerms || termsWellFormed (kterms k)
 
-/-- Well-formedness check returning the preskeleton in a list (success) or
-    an empty list (failure).  Replaces the Haskell `MonadFail` constraint.
-    Mirrors `wellFormedPreskel :: MonadFail m => Preskel -> m Preskel`. -/
-def wellFormedPreskel (k : Preskel) : List Preskel :=
-  if preskelWellFormed k && traceWellFormed k then [k] else []
-
 -- ── checkVars ─────────────────────────────────────────────────────────────────
 
 /-- Panic if any role variable from an instance also appears in the skeleton
@@ -835,12 +829,15 @@ def checkVars (k : Preskel) : Preskel :=
     then assertError s!"Strand.checkVars: role var {repr v} in skel"
     else k) k
 
--- ── newPreskel ────────────────────────────────────────────────────────────────
+-- ── newPreskel / newPreskelBasic / addExpensiveFields ────────────────────────
 
-/-- Build a preskeleton, computing all derived fields (graph, origination nodes,
-    transitive closure, gist).  This is the internal constructor.
-    Mirrors `newPreskel :: Gen -> Shared -> [Instance] -> [Pair] -> ...`. -/
-def newPreskel (gen : Gen) (shared : Shared) (insts : List Instance)
+/-- Build a preskeleton with all *cheap* derived fields, but leave the
+    expensive transitive-closure fields (`kgpOrds`, `kgpOrdsAll`, `tc`) empty.
+    Callers that immediately feed the result to `wellFormedPreskel` should use
+    this variant; `wellFormedPreskel` calls `addExpensiveFields` on success, so
+    preskels that are rejected never pay the O(n²–n³) closure cost.
+    Callers that need the full preskel immediately should use `newPreskel`. -/
+private def newPreskelBasic (gen : Gen) (shared : Shared) (insts : List Instance)
     (orderings : List Pair) (non pnon unique uniqgen : List Term)
     (absent : List (Term × Term)) (precur : List Node) (genSt conf auth : List Term)
     (facts : List Fact) (prio : List (Node × Int))
@@ -853,13 +850,8 @@ def newPreskel (gen : Gen) (shared : Shared) (insts : List Instance)
   let g          := buildGraph insts orderings'
   let strands    := g.gstrands
   let edges      := g.gedges
-  let getNode (n : Node) :=
-    strands.get? n.1.toNat >>= fun s => s.nodes.get? n.2.toNat
-  let gpOrdsAll  := nodeGraphCloseAll (nodeGraphEdges strands)
-  let gpOrds     := gpOrdsAll.filter (fun (p : Pair) => p.1.1 != p.2.1)
   let orig       := unique'.map (originationNodes strands)
   let ugen       := uniqgen'.map (generationNodes strands)
-  let tcEdges    := (graphClose getNode (graphEdges strands)).filter pairWellOrdered
   let strandids  := (nats insts.length).map Int.ofNat
   let k : Preskel := {
     gen        := gen,
@@ -867,8 +859,8 @@ def newPreskel (gen : Gen) (shared : Shared) (insts : List Instance)
     insts      := insts,
     strands    := strands,
     orderings  := orderings',
-    kgpOrds    := gpOrds,
-    kgpOrdsAll := gpOrdsAll,
+    kgpOrds    := [],       -- filled in by addExpensiveFields / wellFormedPreskel
+    kgpOrdsAll := [],       -- filled in by addExpensiveFields / wellFormedPreskel
     edges      := edges,
     knon       := non.eraseDups,
     kpnon      := pnon.eraseDups,
@@ -886,7 +878,7 @@ def newPreskel (gen : Gen) (shared : Shared) (insts : List Instance)
     kugen      := ugen,
     pov        := pov,
     strandids  := strandids,
-    tc         := tcEdges.map graphPair,
+    tc         := [],       -- filled in by addExpensiveFields / wellFormedPreskel
     kgist      := default,
     operation  := oper,
     krules     := rules,
@@ -894,6 +886,39 @@ def newPreskel (gen : Gen) (shared : Shared) (insts : List Instance)
     prob       := prob }
   let k := { k with kgist := mkGist k }
   if useCheckVars then checkVars k else k
+
+/-- Compute and attach the expensive transitive-closure fields (`kgpOrds`,
+    `kgpOrdsAll`, `tc`).  Called by `wellFormedPreskel` on surviving preskels,
+    so rejected preskels never pay this cost.  Also called by `newPreskel` so
+    that callers which need the full preskel immediately still get it. -/
+def addExpensiveFields (k : Preskel) : Preskel :=
+  let strands  := k.strands
+  let getNode (n : Node) :=
+    strands.get? n.1.toNat >>= fun s => s.nodes.get? n.2.toNat
+  let gpOrdsAll := nodeGraphCloseAll (nodeGraphEdges strands)
+  let gpOrds    := gpOrdsAll.filter (fun (p : Pair) => p.1.1 != p.2.1)
+  let tcEdges   := (graphClose getNode (graphEdges strands)).filter pairWellOrdered
+  { k with kgpOrdsAll := gpOrdsAll, kgpOrds := gpOrds, tc := tcEdges.map graphPair }
+
+/-- Well-formedness check returning the preskeleton in a list (success) or
+    an empty list (failure).  Replaces the Haskell `MonadFail` constraint.
+    On success, attaches the expensive transitive-closure fields so that callers
+    using `newPreskelBasic` never pay those costs for rejected preskels.
+    Mirrors `wellFormedPreskel :: MonadFail m => Preskel -> m Preskel`. -/
+def wellFormedPreskel (k : Preskel) : List Preskel :=
+  if preskelWellFormed k && traceWellFormed k then [addExpensiveFields k] else []
+
+/-- Build a preskeleton, computing all derived fields (graph, origination nodes,
+    transitive closure, gist).  This is the internal constructor.
+    Mirrors `newPreskel :: Gen -> Shared -> [Instance] -> [Pair] -> ...`. -/
+def newPreskel (gen : Gen) (shared : Shared) (insts : List Instance)
+    (orderings : List Pair) (non pnon unique uniqgen : List Term)
+    (absent : List (Term × Term)) (precur : List Node) (genSt conf auth : List Term)
+    (facts : List Fact) (prio : List (Node × Int))
+    (oper : Operation) (rules : List String) (pprob prob : List Sid)
+    (pov : Option Preskel) : Preskel :=
+  addExpensiveFields (newPreskelBasic gen shared insts orderings non pnon unique uniqgen
+    absent precur genSt conf auth facts prio oper rules pprob prob pov)
 
 -- ── renewPreskel ─────────────────────────────────────────────────────────────
 
@@ -1214,7 +1239,9 @@ def soothePreskel (k : Preskel) : Preskel :=
   let vs    := kvars k
   let terms := kterms k
   let chans := kchans k
-  newPreskel k.gen k.shared k.insts k.orderings
+  -- Use newPreskelBasic: soothePreskel is only called immediately before
+  -- wellFormedPreskel, which adds the expensive fields on success.
+  newPreskelBasic k.gen k.shared k.insts k.orderings
     (k.knon.filter    fun t => varSubset [t] terms)
     (k.kpnon.filter   fun t => varSubset [t] terms)
     (k.kunique.filter fun t => terms.any (carriedBy t))
@@ -1272,7 +1299,9 @@ def ksubst (prs : PRS) (gs : Gen × Subst) : List PRS :=
     let auth'   := k.kauth.map   (substitute subst)
     let facts'  := k.kfacts.map  (substFact subst)
     let oper'   := substOper subst k.operation
-    let k'      := newPreskel gen' k.shared insts' k.orderings
+    -- Use newPreskelBasic: result goes to soothePreskel → wellFormedPreskel,
+    -- which adds expensive fields only for preskels that survive.
+    let k'      := newPreskelBasic gen' k.shared insts' k.orderings
                     non' pnon' unique' uniqgen' absent' k.kprecur genSt' conf' auth'
                     facts' k.kpriority oper' k.krules k.pprob k.prob k.pov
     (wellFormedPreskel (soothePreskel k')).map fun k'' =>
@@ -1355,7 +1384,8 @@ def compress (validate : Bool) (prs : PRS) (s s' : Sid) : List PRS :=
   let (k0, k, n, phi, hsubst) := prs
   let perm := updatePerm s s' k.strandids
   (normalizeOrderings validate (permuteOrderings perm k.orderings)).flatMap fun orderings' =>
-    let k' := newPreskel k.gen k.shared (LeanCPSA.Lib.deleteNth s.toNat k.insts)
+    -- Use newPreskelBasic: result goes directly to wellFormedPreskel.
+    let k' := newPreskelBasic k.gen k.shared (LeanCPSA.Lib.deleteNth s.toNat k.insts)
                 orderings' k.knon k.kpnon k.kunique k.kuniqgen k.kabsent
                 (k.kprecur.map (permuteNode perm)) k.kgenSt k.kconf k.kauth
                 (k.kfacts.map (updateFact (updateStrand s s')))
@@ -1371,7 +1401,8 @@ def purge (prs : PRS) (s s' : Sid) : List PRS :=
   let perm := updatePerm s s' k.strandids
   (normalizeOrderings false (permuteOrderings perm (forward s k.orderings))).flatMap
     fun orderings' =>
-    let k' := newPreskel k.gen k.shared (LeanCPSA.Lib.deleteNth s.toNat k.insts)
+    -- Use newPreskelBasic: result goes to soothePreskel → wellFormedPreskel.
+    let k' := newPreskelBasic k.gen k.shared (LeanCPSA.Lib.deleteNth s.toNat k.insts)
                 orderings' k.knon k.kpnon k.kunique k.kuniqgen k.kabsent
                 (k.kprecur.map (permuteNode perm)) k.kgenSt k.kconf k.kauth
                 ((deleteStrandFacts s k.kfacts).map (updateFact (updateStrand s s')))
@@ -1559,7 +1590,8 @@ partial def reduce (prs : PRS) : List PRS :=
   let o := (graphReduce getNode k.edges).map graphPair
   if o.length == k.orderings.length then [prs]
   else
-    let k' := newPreskel k.gen k.shared k.insts o k.knon k.kpnon k.kunique k.kuniqgen
+    -- Use newPreskelBasic: result goes directly to wellFormedPreskel.
+    let k' := newPreskelBasic k.gen k.shared k.insts o k.knon k.kpnon k.kunique k.kuniqgen
                 k.kabsent k.kprecur k.kgenSt k.kconf k.kauth k.kfacts k.kpriority
                 k.operation k.krules k.pprob k.prob k.pov
     (wellFormedPreskel k').map fun k'' => (k0, k'', n, phi, hsubst)
@@ -1631,7 +1663,8 @@ partial def enrich (thin : Bool) (prs : PRS) : List PRS :=
     if o'.length == k.orderings.length then
       maybeThin thin prs
     else
-      let k' := newPreskel k.gen k.shared k.insts o' k.knon k.kpnon k.kunique k.kuniqgen
+      -- Use newPreskelBasic: result goes directly to wellFormedPreskel.
+      let k' := newPreskelBasic k.gen k.shared k.insts o' k.knon k.kpnon k.kunique k.kuniqgen
                   k.kabsent k.kprecur k.kgenSt k.kconf k.kauth k.kfacts k.kpriority
                   k.operation k.krules k.pprob k.prob k.pov
       (wellFormedPreskel k').flatMap fun k'' =>
@@ -1830,7 +1863,8 @@ def aug (prs : PRS) (inst : Instance) : List PRS :=
   let insts'    := k.insts ++ [inst]
   let pair      : Pair := ((Int.ofNat k.insts.length, inst.height - 1), n)
   let orderings' := pair :: k.orderings
-  let k' := newPreskel k.gen k.shared insts' orderings'
+  -- Use newPreskelBasic: result goes directly to wellFormedPreskel.
+  let k' := newPreskelBasic k.gen k.shared insts' orderings'
               (inheritRnon inst ++ k.knon)
               (inheritRpnon inst ++ k.kpnon)
               (inheritRunique inst ++ k.kunique)
@@ -1904,7 +1938,8 @@ partial def addListener (k : Preskel) (n : Node) (cause : Cause) (t : Term) : Li
   let (gen', inst)  := mkListener (protocol k) k.gen t
   let insts'        := k.insts ++ [inst]
   let pair          : Pair := ((Int.ofNat k.insts.length, 1), n)
-  let k'            := newPreskel gen' k.shared insts' (pair :: k.orderings)
+  -- Use newPreskelBasic: result goes directly to wellFormedPreskel.
+  let k'            := newPreskelBasic gen' k.shared insts' (pair :: k.orderings)
                          k.knon k.kpnon k.kunique k.kuniqgen k.kabsent k.kprecur
                          k.kgenSt k.kconf k.kauth k.kfacts k.kpriority
                          (.AddedListener [] t cause) [] k.pprob k.prob k.pov
@@ -1921,7 +1956,8 @@ partial def formerAddBaseListener (k : Preskel) (n : Node) (cause : Cause)
   let insts'        := k.insts ++ [inst]
   let pair          : Pair := ((Int.ofNat k.insts.length, 1), n)
   let precur'       := (Int.ofNat k.insts.length, 0) :: k.kprecur
-  let k'            := newPreskel gen'' k.shared insts' (pair :: k.orderings)
+  -- Use newPreskelBasic: result goes directly to wellFormedPreskel.
+  let k'            := newPreskelBasic gen'' k.shared insts' (pair :: k.orderings)
                          k.knon k.kpnon k.kunique k.kuniqgen k.kabsent precur'
                          k.kgenSt k.kconf k.kauth k.kfacts k.kpriority
                          (.AddedListener [] t' cause) [] k.pprob k.prob k.pov
@@ -1941,7 +1977,8 @@ partial def addBaseListener (k : Preskel) (n : Node) (cause : Cause)
     Mirrors `addAbsence :: Preskel -> Node -> Cause -> Term -> Term -> [Ans]`. -/
 partial def addAbsence (k : Preskel) (n : Node) (cause : Cause)
     (x t : Term) : List Ans :=
-  let k' := newPreskel k.gen k.shared k.insts k.orderings
+  -- Use newPreskelBasic: result goes directly to wellFormedPreskel.
+  let k' := newPreskelBasic k.gen k.shared k.insts k.orderings
                k.knon k.kpnon k.kunique k.kuniqgen ((x, t) :: k.kabsent) k.kprecur
                k.kgenSt k.kconf k.kauth k.kfacts k.kpriority
                (.AddedAbsence [] x t cause) k.krules k.pprob k.prob k.pov
@@ -2387,13 +2424,29 @@ private def changeStrand (locs : List Location) (copy : Term)
   let tr := (i.role.rtrace.take i.height.toNat).map (evtMap (instantiate env'))
   bldInstance i.role tr gen'
 
+/-- Tail-recursive worker for `changeStrands`.
+    Processes strands left-to-right, accumulating instances in reverse, then
+    reverses at the end.  The original `foldMapM`-based version processed
+    right-to-left (recurse on tail first, then head), which is equivalent but
+    creates O(n) stack frames.  Since `changeStrand` returns exactly 0 or 1
+    results (the match is always fully concrete after `matchAlways`), the list
+    monad in `foldMapM` adds no additional branching — we can safely use a
+    flat iterative fold.  Gen-counter ordering changes (only fresh-variable
+    names are affected, not the search structure), which is invisible to
+    `cpsa4diff`. -/
+private def changeStrandsGo (locs : List Location) (copy : Term)
+    : Gen → List KStrand → List Instance → Gen × List Instance
+  | gen, [],           acc => (gen, acc.reverse)
+  | gen, str :: rest,  acc =>
+    match changeStrand locs copy gen str with
+    | []                => assertError "Strand.changeStrands: bad strand build"
+    | (gen', inst) :: _ => changeStrandsGo locs copy gen' rest (inst :: acc)
+
 /-- Rebuild all strand instances, relocating `copy` at each affected location.
     Mirrors `changeStrands :: [Location] -> Term -> Gen -> [Strand] -> (Gen,[Instance])`. -/
 private def changeStrands (locs : List Location) (copy : Term)
     (gen : Gen) (strs : List KStrand) : Gen × List Instance :=
-  match (foldMapM (changeStrand locs copy) gen strs) with
-  | (gen', insts') :: _ => (gen', insts')
-  | []                  => assertError "Strand.changeStrands: bad strand build"
+  changeStrandsGo locs copy gen strs []
 
 /-- Generate all non-empty subsets of `{0..n-1}` (as index lists).
     Mirrors `subsets :: Int -> [[Int]]`. -/
@@ -2436,7 +2489,13 @@ private def separateVariable (k : Preskel) (ps : List (Term × Location))
     else
       let (gen', t') := clone k.gen t
       let ge := matchAlways t t' (gen', emptyEnv)
-      let parts := (subsets (Int.ofNat locs.length)).map
+      -- In Haskell, the outer `take separateVariablesLimit` on `separateVariables`
+      -- is lazy and stops evaluation after 1024 candidates total.  In Lean, `flatMap`
+      -- is strict, so without an early truncation we would evaluate all 2^n subsets
+      -- before `take` ever runs.  Cap at `separateVariablesLimit` subsets here so
+      -- each variable contributes at most 2×separateVariablesLimit candidates; the
+      -- outer take in `generalize` then limits the grand total to separateVariablesLimit.
+      let parts := ((subsets (Int.ofNat locs.length)).take separateVariablesLimit).map
         (fun idxs => idxs.filterMap (fun i => locs.get? i.toNat))
       parts.flatMap fun locs' => changeLocations k ge.2 ge.1 t' locs'
 

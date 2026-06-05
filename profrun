@@ -1,0 +1,560 @@
+#!/usr/bin/env python3
+"""
+profrun — CPU call-graph profiler for leancpsa
+
+Runs leancpsa under macOS /usr/bin/sample and produces a demangled, filtered
+call-graph report showing where time is spent.
+
+Usage:
+  ./profrun wonthull2.scm
+  ./profrun wonthull2.scm envelope.scm fragile_pruning.scm
+  ./profrun --dir ../srccpsa-4.4.9/tst wonthull2.scm envelope.scm
+  ./profrun --timeout 400 --top 30 wonthull2.scm
+
+Output per file:
+  • Call-tree view showing only LeanCPSA frames (demangled), indented to
+    reflect the true nesting.
+  • Top-N table of all LeanCPSA functions ranked by inclusive sample count.
+  • Raw /usr/bin/sample output saved to perf/profiles/<stem>_<ts>.txt for
+    manual inspection.
+
+NOTE — Rosetta 2 limitation
+  This binary is x86_64 running translated on Apple Silicon.  The
+  "Sort by top of stack" (exclusive-time) section of the sample output is
+  dominated by Rosetta JIT addresses rather than source symbols, so only
+  inclusive (call-graph) counts are reported.  To get exclusive times, build
+  a native arm64 binary once an arm64 Lean toolchain is available.
+
+COMPARISON mode
+  ./profrun --compare wonthull2.scm ns.scm
+  Shows both trees side-by-side with ratio annotations so you can spot where
+  the slow test diverges.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Optional
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+
+SCRIPT_DIR   = Path(__file__).resolve().parent
+LEAN_BIN     = SCRIPT_DIR / ".lake/build/bin/leancpsa"
+SAMPLE_BIN   = Path("/usr/bin/sample")
+PROFILES_DIR = SCRIPT_DIR / "perf/profiles"
+DEFAULT_TST  = SCRIPT_DIR.parent / "srccpsa-4.4.9/tst"
+
+# ── Demangling ────────────────────────────────────────────────────────────────
+
+# Known LeanCPSA module names, used to detect module boundaries in symbol names.
+_MODULES = (
+    "Algebra", "Channel", "Cohort", "Displayer", "GenRules",
+    "Lib", "Loader", "LoadFormulas", "Main", "Protocol",
+    "Reduction", "Signature", "Strand",
+)
+
+def _strip_suffixes(name: str) -> str:
+    """Remove common compiler-generated suffixes from a Lean name fragment."""
+    # ___spec__N  (specialisation)
+    name = re.sub(r'___spec__\d+$', '', name)
+    # ___redArg (reduced-argument variant)
+    name = re.sub(r'___redArg$', ' [red]', name)
+    # ___lam__N / ___lambda__N
+    name = re.sub(r'___(lam|lambda)__\d+$', ' [λ]', name)
+    # ___boxed
+    name = re.sub(r'___boxed$', ' [boxed]', name)
+    # ___at___NNfoo (specialised-at annotation)
+    name = re.sub(r'___at___\d+\w*', '', name)
+    # __loop / __loop_inner (keep as suffix)
+    return name
+
+def demangle(raw: str) -> str:
+    """
+    Convert a Lean 4 / leancpsa binary symbol to a readable name.
+
+    Examples
+    --------
+    _lp_leancpsa_LeanCPSA_Cohort_reduceNoTest
+      → LeanCPSA.Cohort.reduceNoTest
+    _lp_leancpsa___private_LeanCPSA_Strand_0__LeanCPSA_Strand_nodeGraphCloseAll__loop_inner
+      → LeanCPSA.Strand.nodeGraphCloseAll__loop_inner  ⟨private⟩
+    lp_leancpsa_List_filterMapTR_go___at___00__private_LeanCPSA_Strand_0__LeanCPSA_Strand_nodeGraphCloseAll__loop_spec__2
+      → List.filterMapTR_go  [for LeanCPSA.Strand.nodeGraphCloseAll__loop]
+    """
+    name = raw.lstrip('_')
+
+    # Strip package prefix
+    pkg = 'lp_leancpsa_'
+    if name.startswith(pkg):
+        name = name[len(pkg):]
+    else:
+        return raw  # not one of ours
+
+    # Private function: __private_LeanCPSA_Module_N__LeanCPSA_Module_func
+    priv_re = re.match(
+        r'__private_LeanCPSA_(\w+)_\d+__LeanCPSA_\1_(.+)$', name)
+    if priv_re:
+        mod  = priv_re.group(1)
+        func = _strip_suffixes(priv_re.group(2))
+        return f"LeanCPSA.{mod}.{func}  ⟨private⟩"
+
+    # LeanCPSA public function: LeanCPSA_Module_func
+    pub_re = re.match(r'LeanCPSA_(\w+)_(.+)$', name)
+    if pub_re:
+        mod  = pub_re.group(1)
+        func = _strip_suffixes(pub_re.group(2))
+        return f"LeanCPSA.{mod}.{func}"
+
+    # Lean std functions specialised for a LeanCPSA context
+    # e.g. List_filterMapTR_go___at___00__private_LeanCPSA_Strand_0__...
+    for mod in _MODULES:
+        spec_re = re.match(
+            rf'(List|Array|Option)_(\w+)(?:___\w+)*__private_LeanCPSA_{mod}_\d+__LeanCPSA_{mod}_(.+)$',
+            name)
+        if spec_re:
+            std  = spec_re.group(1)
+            fn   = _strip_suffixes(spec_re.group(2))
+            ctx  = _strip_suffixes(spec_re.group(3))
+            return f"{std}.{fn}  [for LeanCPSA.{mod}.{ctx}]"
+        # public context variant
+        spec_re2 = re.match(
+            rf'(List|Array|Option)_(\w+)(?:___\w+)*_LeanCPSA_{mod}_(.+)$',
+            name)
+        if spec_re2:
+            std  = spec_re2.group(1)
+            fn   = _strip_suffixes(spec_re2.group(2))
+            ctx  = _strip_suffixes(spec_re2.group(3))
+            return f"{std}.{fn}  [for LeanCPSA.{mod}.{ctx}]"
+
+    # Lean std lib (no LeanCPSA context)
+    std_re = re.match(r'(List|Array|Option|IO|Lean)_(.+)$', name)
+    if std_re:
+        cls  = std_re.group(1)
+        func = _strip_suffixes(std_re.group(2))
+        return f"{cls}.{func}"
+
+    # Main entry
+    if name.startswith('__private_Main'):
+        return 'Main.go  ⟨private⟩'
+    if name == '_lean_main' or name == 'lean_main':
+        return 'lean_main'
+
+    return _strip_suffixes(name)
+
+def is_leancpsa(raw: str) -> bool:
+    """True if the raw symbol belongs to our leancpsa binary."""
+    s = raw.lstrip('_')
+    return s.startswith('lp_leancpsa_') or s in ('lean_main', '_lean_main', 'main')
+
+# ── sample output parsing ─────────────────────────────────────────────────────
+
+# Matches one frame in the Call graph section.
+# Line format (after "Call graph:"):
+#   <whitespace> [+!:|]* <count> <symbol> (in <lib>) [+ offset] [addr]
+_FRAME_RE = re.compile(
+    r'^(?P<indent>[ +!:|]*)(?P<count>\d+)\s+'
+    r'(?P<sym>[^\s(]+)\s+\(in\s+(?P<lib>[^)]+)\)',
+    re.MULTILINE,
+)
+
+class Frame:
+    __slots__ = ('depth', 'count', 'sym', 'lib', 'label')
+
+    def __init__(self, depth: int, count: int, sym: str, lib: str):
+        self.depth = depth
+        self.count = count
+        self.sym   = sym
+        self.lib   = lib.strip()
+        self.label = demangle(sym) if self.lib == 'leancpsa' else sym
+
+    @property
+    def is_ours(self) -> bool:
+        """True if the frame is in our binary AND is an interesting symbol."""
+        if self.lib != 'leancpsa':
+            return False
+        s = self.sym.lstrip('_')
+        # Keep lp_leancpsa_* (our code), lean_main, and main
+        return (s.startswith('lp_leancpsa_') or
+                s in ('lean_main', '_lean_main', 'main'))
+
+
+def parse_call_graph(text: str) -> list[Frame]:
+    """Extract all frames from the 'Call graph:' section."""
+    start = text.find('\nCall graph:\n')
+    if start == -1:
+        return []
+    end_markers = ['\nTotal number in stack', '\n\nBinary Images:']
+    end = len(text)
+    for marker in end_markers:
+        pos = text.find(marker, start)
+        if pos != -1:
+            end = min(end, pos)
+
+    section = text[start:end]
+    frames: list[Frame] = []
+    for m in _FRAME_RE.finditer(section):
+        indent = m.group('indent')
+        depth  = len(indent)
+        frames.append(Frame(
+            depth = depth,
+            count = int(m.group('count')),
+            sym   = m.group('sym'),
+            lib   = m.group('lib'),
+        ))
+    return frames
+
+
+def top_functions(frames: list[Frame], top_n: int) -> list[tuple[int, str]]:
+    """
+    Return the top-N leancpsa functions by their maximum inclusive count
+    (i.e. the highest count seen for each symbol across all tree positions).
+    """
+    by_sym: dict[str, int] = {}
+    for f in frames:
+        if not f.is_ours:
+            continue
+        by_sym[f.label] = max(by_sym.get(f.label, 0), f.count)
+    return [(v, k) for k, v in sorted(by_sym.items(), key=lambda x: -x[1])][:top_n]
+
+
+def heaviest_path(frames: list[Frame]) -> list[Frame]:
+    """
+    Follow the heaviest branch at each node to extract the hottest call path.
+    Returns the sequence of leancpsa frames along that path.
+    """
+    if not frames:
+        return []
+
+    # Walk the tree: at each depth, pick the child with the highest count.
+    # We use a simple greedy descent.
+    path: list[Frame] = []
+    prev_depth = -1
+    prev_count = frames[0].count if frames else 0
+
+    for f in frames:
+        if not f.is_ours:
+            continue
+        # If we're at a shallower depth than last, we've entered a sibling branch;
+        # only follow if its count is as high as the previous sibling we picked.
+        if f.depth <= prev_depth:
+            # Entering a new subtree at same or shallower depth
+            # Accept if it's a continuation at same depth and high count
+            if f.count < prev_count * 0.5:
+                continue
+        path.append(f)
+        prev_depth = f.depth
+        prev_count = f.count
+
+    return path
+
+# ── Rendering ─────────────────────────────────────────────────────────────────
+
+_W = 90  # report width
+
+def _bar(count: int, total: int, width: int = 20) -> str:
+    filled = int(round(width * count / total)) if total else 0
+    return '█' * filled + '░' * (width - filled)
+
+
+def render_report(
+    stem: str,
+    frames: list[Frame],
+    elapsed_s: float,
+    total_samples: int,
+    top_n: int,
+    min_pct: float = 1.0,
+) -> str:
+    lines: list[str] = []
+    div  = '─' * _W
+    ddiv = '═' * _W
+
+    lines.append(ddiv)
+    lines.append(f"  Profile: {stem}   ({elapsed_s:.1f}s wall,  {total_samples} samples)")
+    lines.append(ddiv)
+
+    # ── Filtered call tree ────────────────────────────────────────────────────
+    threshold = int(total_samples * min_pct / 100)
+    lines.append("")
+    lines.append(
+        f"  CALL TREE  (LeanCPSA frames only, inclusive counts ≥{min_pct:.0f}% = {threshold})"
+    )
+    lines.append(div)
+
+    our_frames = [f for f in frames if f.is_ours and f.count >= threshold]
+    if not our_frames:
+        lines.append("  (no leancpsa frames found above threshold)")
+    else:
+        # Normalise depths: subtract the minimum depth so the tree starts at 0
+        min_depth = min(f.depth for f in our_frames)
+        for f in our_frames:
+            rel_depth = f.depth - min_depth
+            indent_str = '  ' * (rel_depth // 2)   # depth units → indent chars
+            pct = f.count / total_samples * 100 if total_samples else 0
+            lines.append(
+                f"  {indent_str}{f.count:6d}  ({pct:5.1f}%)  {f.label}"
+            )
+
+    # ── Top-N table ───────────────────────────────────────────────────────────
+    lines.append("")
+    lines.append(f"  TOP {top_n} FUNCTIONS by inclusive sample count")
+    lines.append(div)
+    lines.append(f"  {'count':>7}  {'%':>6}  {'bar':20}  function")
+    lines.append(f"  {'─'*7}  {'─'*6}  {'─'*20}  {'─'*40}")
+
+    for count, label in top_functions(frames, top_n):
+        pct = count / total_samples * 100 if total_samples else 0
+        bar = _bar(count, total_samples)
+        # Truncate long label
+        short = label if len(label) <= 60 else label[:57] + '...'
+        lines.append(f"  {count:7d}  {pct:5.1f}%  {bar}  {short}")
+
+    lines.append(ddiv)
+    lines.append("")
+    return '\n'.join(lines)
+
+
+def render_comparison(
+    stems: list[str],
+    frames_list: list[list[Frame]],
+    elapsed_list: list[float],
+    totals: list[int],
+) -> str:
+    """Side-by-side top-function comparison for two or more profiles."""
+    lines: list[str] = []
+    lines.append('═' * _W)
+    lines.append("  COMPARISON — top functions by inclusive count")
+    for i, (stem, elapsed, total) in enumerate(zip(stems, elapsed_list, totals)):
+        lines.append(f"  [{i}] {stem}  ({elapsed:.1f}s,  {total} samples)")
+    lines.append('─' * _W)
+
+    # Collect all unique function labels across all profiles
+    all_labels: list[str] = []
+    seen: set[str] = set()
+    for frames in frames_list:
+        for count, label in top_functions(frames, 999):
+            if label not in seen:
+                all_labels.append(label)
+                seen.add(label)
+
+    # For each label, get counts from each profile
+    counts_per: list[dict[str, int]] = []
+    for frames in frames_list:
+        d: dict[str, int] = {}
+        for count, label in top_functions(frames, 999):
+            d[label] = count
+        counts_per.append(d)
+
+    # Sort by max count across all profiles
+    def max_count(label: str) -> int:
+        return max(d.get(label, 0) for d in counts_per)
+
+    all_labels.sort(key=max_count, reverse=True)
+
+    total_ref = totals[0] if totals else 1
+
+    hdr = f"  {'function':<45}"
+    for i, (stem, total) in enumerate(zip(stems, totals)):
+        hdr += f"  [{i}]{stem[:8]:>8}({'%':>5})"
+    lines.append(hdr)
+    lines.append('  ' + '─' * (_W - 2))
+
+    for label in all_labels[:40]:
+        row = f"  {label[:44]:<45}"
+        for counts, total in zip(counts_per, totals):
+            c = counts.get(label, 0)
+            pct = c / total * 100 if total else 0
+            row += f"  {c:>10} ({pct:4.1f}%)"
+        lines.append(row)
+
+    lines.append('═' * _W)
+    return '\n'.join(lines)
+
+# ── Running sample ────────────────────────────────────────────────────────────
+
+def run_profile(
+    input_path: Path,
+    profiles_dir: Path,
+    timeout: int,
+) -> tuple[Path, float, list[Frame], int]:
+    """
+    Run leancpsa under /usr/bin/sample.
+    Returns (profile_path, elapsed_seconds, frames, total_samples).
+    """
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+    stem = input_path.stem
+    ts   = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    out_path = profiles_dir / f"{stem}_{ts}.txt"
+
+    # Start leancpsa and immediately attach sample (no sleep — sample uses
+    # -mayDie so it survives if the process finishes before it attaches).
+    with open(input_path) as fh_in:
+        lean_proc = subprocess.Popen(
+            [str(LEAN_BIN)],
+            stdin  = fh_in,
+            stdout = subprocess.DEVNULL,
+            stderr = subprocess.DEVNULL,
+        )
+    pid = lean_proc.pid
+    t0  = time.monotonic()
+
+    # sample <pid> <duration_s> <interval_ms> -mayDie -f <outfile>
+    # -mayDie: don't fail if process exits before sampling ends
+    sample_proc = subprocess.Popen(
+        [str(SAMPLE_BIN), str(pid), str(timeout), "1",
+         "-mayDie", "-f", str(out_path)],
+        stdout = subprocess.DEVNULL,
+        stderr = subprocess.DEVNULL,
+    )
+
+    # Wait for sample to finish (it exits after `timeout` seconds), then
+    # kill leancpsa if it is still running.  Without this, lean_proc.wait()
+    # would block indefinitely for inputs that never finish within the window.
+    sample_proc.wait()
+    if lean_proc.poll() is None:   # still running after sample finished
+        lean_proc.terminate()
+        try:
+            lean_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            lean_proc.kill()
+            lean_proc.wait()
+
+    elapsed = time.monotonic() - t0
+
+    # Parse the profile
+    if not out_path.exists() or out_path.stat().st_size == 0:
+        print(f"  WARNING: sample produced no output for {stem} "
+              f"(process may have finished before sample attached)",
+              file=sys.stderr)
+        return out_path, elapsed, [], 0
+
+    text = out_path.read_text(errors='replace')
+
+    if 'Call graph:' not in text:
+        print(f"  WARNING: no Call graph section in sample output for {stem}; "
+              f"test ran too fast to profile meaningfully.", file=sys.stderr)
+        return out_path, elapsed, [], 0
+
+    frames = parse_call_graph(text)
+
+    # Total samples = highest count across root-level frames
+    total = 0
+    for f in frames:
+        if f.lib in ('dyld', 'leancpsa') and f.count > total:
+            total = f.count
+
+    if total < 20:
+        print(f"  NOTE: only {total} samples collected — "
+              f"test finished too quickly for a meaningful profile. "
+              f"Consider profiling slower tests.", file=sys.stderr)
+
+    return out_path, elapsed, frames, total
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+def resolve_files(names: list[str], base_dir: Path) -> list[Path]:
+    paths: list[Path] = []
+    for name in names:
+        p = Path(name)
+        if p.is_absolute() and p.exists():
+            paths.append(p)
+        elif (base_dir / name).exists():
+            paths.append(base_dir / name)
+        elif p.exists():
+            paths.append(p.resolve())
+        else:
+            print(f"ERROR: cannot find '{name}' in {base_dir} or as absolute path",
+                  file=sys.stderr)
+            sys.exit(1)
+    return paths
+
+
+def main(argv: Optional[list[str]] = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Profile leancpsa on one or more test inputs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    parser.add_argument(
+        "files", nargs="+", metavar="FILE",
+        help="Test file(s) to profile (.scm), relative to --dir or absolute.",
+    )
+    parser.add_argument(
+        "--dir", default=str(DEFAULT_TST), metavar="DIR",
+        help=f"Directory containing test files (default: {DEFAULT_TST})",
+    )
+    parser.add_argument(
+        "--timeout", type=int, default=600, metavar="SECS",
+        help="Max seconds to wait for leancpsa to finish (default: 600)",
+    )
+    parser.add_argument(
+        "--top", type=int, default=25, metavar="N",
+        help="Number of functions to show in the top-N table (default: 25)",
+    )
+    parser.add_argument(
+        "--min-pct", type=float, default=1.0, metavar="PCT",
+        help="Hide call-tree frames below this %% of total samples (default: 1.0)",
+    )
+    parser.add_argument(
+        "--compare", action="store_true",
+        help="After profiling all files, print a side-by-side comparison table.",
+    )
+    parser.add_argument(
+        "--profiles-dir", default=str(PROFILES_DIR), metavar="DIR",
+        help=f"Directory to save raw sample output (default: {PROFILES_DIR})",
+    )
+    args = parser.parse_args(argv)
+
+    # Validate tools
+    if not LEAN_BIN.exists():
+        print(f"ERROR: leancpsa binary not found at {LEAN_BIN}", file=sys.stderr)
+        print("  Run: cd cpsa2lean && lake build", file=sys.stderr)
+        sys.exit(1)
+    if not SAMPLE_BIN.exists():
+        print(f"ERROR: /usr/bin/sample not found (macOS only)", file=sys.stderr)
+        sys.exit(1)
+
+    base_dir = Path(args.dir)
+    profiles_dir = Path(args.profiles_dir)
+    files = resolve_files(args.files, base_dir)
+
+    all_stems:   list[str]         = []
+    all_frames:  list[list[Frame]] = []
+    all_elapsed: list[float]       = []
+    all_totals:  list[int]         = []
+
+    for i, fpath in enumerate(files):
+        print(f"\n[{i+1}/{len(files)}] Profiling {fpath.name} …", flush=True)
+        print(f"  timeout={args.timeout}s, saving raw sample to {profiles_dir}/")
+
+        prof_path, elapsed, frames, total = run_profile(fpath, profiles_dir, args.timeout)
+
+        print(f"  Done — {elapsed:.1f}s wall,  {total} samples,  raw profile: {prof_path.name}")
+
+        report = render_report(fpath.stem, frames, elapsed, total, args.top,
+                               min_pct=args.min_pct)
+        print(report)
+
+        # Also save report alongside raw profile
+        report_path = prof_path.with_suffix('.report.txt')
+        report_path.write_text(report)
+        print(f"  Report saved: {report_path.name}")
+
+        all_stems.append(fpath.stem)
+        all_frames.append(frames)
+        all_elapsed.append(elapsed)
+        all_totals.append(total)
+
+    # Comparison table
+    if args.compare and len(files) >= 2:
+        print()
+        print(render_comparison(all_stems, all_frames, all_elapsed, all_totals))
+
+
+if __name__ == "__main__":
+    main()

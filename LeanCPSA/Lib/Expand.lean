@@ -1,7 +1,7 @@
 /-
 LeanCPSA.Lib.Expand
 
-Port of CPSA.Lib.Expand (MITRE cpsa v4.4.8).
+Port of CPSA.Lib.Expand (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 

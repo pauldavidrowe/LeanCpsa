@@ -2,9 +2,9 @@
 LeanCPSA.Options
 
 Command line options
-Port of CPSA.Options (MITRE cpsa v4.4.8).
+Port of CPSA.Options (MITRE cpsa).
 
-Copyright (c) 2026 Paul D. Rowe 
+Copyright (c) 2026 Paul D. Rowe
 Copyright (c) 2009 The MITRE Corporation
 
 This program is free software: you can redistribute it and/or

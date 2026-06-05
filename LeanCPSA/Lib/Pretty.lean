@@ -1,7 +1,7 @@
 /-
 LeanCPSA.Lib.Pretty
 
-Port of CPSA.Lib.Pretty (MITRE cpsa v4.4.8).
+Port of CPSA.Lib.Pretty (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 

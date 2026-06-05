@@ -1,7 +1,7 @@
 /-
 LeanCPSA.Characteristic
 
-Port of CPSA.Characteristic (MITRE cpsa v4.4.8).
+Port of CPSA.Characteristic (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 

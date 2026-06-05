@@ -2,7 +2,7 @@
 Main
 
 Entry point for the CPSA solver executable.
-Port of CPSA.Main (MITRE cpsa v4.4.8).
+Port of CPSA.Main (MITRE cpsa).
 
 Reads command-line arguments, opens input, expands macros, and dispatches
 to the reduction engine or the macro-expand-only pretty-printer.

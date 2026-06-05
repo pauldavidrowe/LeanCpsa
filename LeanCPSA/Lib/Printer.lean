@@ -1,7 +1,7 @@
 /-
 LeanCPSA.Lib.Printer
 
-Port of CPSA.Lib.Printer (MITRE cpsa v4.4.8).
+Port of CPSA.Lib.Printer (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 

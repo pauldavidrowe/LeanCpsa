@@ -1,9 +1,9 @@
 /-
 LeanCPSA.Signature
 
-Port of CPSA.Signature.hs (MITRE cpsa v4.4.8).
+Port of CPSA.Signature.hs (MITRE cpsa).
 
-Copyright (c) 2026 Paul D. Rowe 
+Copyright (c) 2026 Paul D. Rowe
 
 Signatures for algebras
 

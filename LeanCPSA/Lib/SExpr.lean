@@ -1,9 +1,9 @@
 /-
 LeanCPSA.Lib.SExpr
 
-Port of CPSA.Lib.SExpr (MITRE cpsa v4.4.8).
+Port of CPSA.Lib.SExpr (MITRE cpsa).
 
-Copyright (c) 2026 Paul D. Rowe 
+Copyright (c) 2026 Paul D. Rowe
 
 This module provides a data structure for S-expressions, and a reader.
 The reader records the position in the file at which items that make

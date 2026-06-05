@@ -1,0 +1,152 @@
+══════════════════════════════════════════════════════════════════════════════════════════
+  Profile: wonthull2   (149.2s wall,  123849 samples)
+══════════════════════════════════════════════════════════════════════════════════════════
+
+  CALL TREE  (LeanCPSA frames only, inclusive counts ≥1% = 1238)
+──────────────────────────────────────────────────────────────────────────────────────────
+  123849  (100.0%)  main
+    123849  (100.0%)  _lean_main
+      123849  (100.0%)  Main.go  ⟨private⟩
+        123847  (100.0%)  LeanCPSA.Reduction.runSolver
+          123700  ( 99.9%)  LeanCPSA.Reduction.breadth
+            123700  ( 99.9%)  List.mapTR_loop
+              123399  ( 99.6%)  LeanCPSA.Reduction.branch  ⟨private⟩
+                119143  ( 96.2%)  LeanCPSA.Cohort.reduceNoTest
+                  113760  ( 91.9%)  LeanCPSA.Strand.generalize
+                    113659  ( 91.8%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                      112843  ( 91.1%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                         43077  ( 34.8%)  LeanCPSA.Strand.changeLocations  ⟨private⟩
+                           11979  (  9.7%)  LeanCPSA.Strand.newPreskel
+                              6808  (  5.5%)  LeanCPSA.Strand.nodeGraphCloseAll__loop  ⟨private⟩
+                              2710  (  2.2%)  LeanCPSA.Strand.nodeGraphCloseAll__loop_inner  ⟨private⟩
+                            9801  (  7.9%)  LeanCPSA.Strand.newPreskel
+                              9751  (  7.9%)  LeanCPSA.Strand.graphClose_fixpoint  ⟨private⟩
+                                  5562  (  4.5%)  List.foldl  [for LeanCPSA.Strand.graphClose_spec__3]
+                                    2595  (  2.1%)  List.filterMapTR_go  [for LeanCPSA.Strand.graphClose_spec__1]
+                                        2251  (  1.8%)  LeanCPSA.Strand_newPreskel___lam__0__.boxed
+                                  3697  (  3.0%)  List.foldl  [for LeanCPSA.Strand.graphClose_spec__3]
+                                    3048  (  2.5%)  List.foldl  [for LeanCPSA.Strand.graphClose_spec__2]
+                            5764  (  4.7%)  LeanCPSA.Strand.newPreskel
+                              5254  (  4.2%)  LeanCPSA.Strand.mkGist
+                                5083  (  4.1%)  LeanCPSA.Strand.instVars  ⟨private⟩
+                                  2971  (  2.4%)  List.foldl
+                                      2690  (  2.2%)  Lean.RBNode_insert [red]
+                                  1791  (  1.4%)  LeanCPSA.Strand.addIvars
+                            5458  (  4.4%)  LeanCPSA.Strand.newPreskel
+                              5344  (  4.3%)  LeanCPSA.Strand.factVars
+                                3222  (  2.6%)  List.foldl
+                                    2932  (  2.4%)  Lean.RBNode_insert [red]
+                                1781  (  1.4%)  LeanCPSA.Strand.addIvars
+                            2610  (  2.1%)  LeanCPSA.Strand.newPreskel
+                              2577  (  2.1%)  List.mapTR_loop
+                                2472  (  2.0%)  LeanCPSA.Strand.originationNodes
+                                  2293  (  1.9%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                    1325  (  1.1%)  LeanCPSA.Protocol.originationPos__loop  ⟨private⟩
+                            2433  (  2.0%)  LeanCPSA.Strand.newPreskel
+                              1396  (  1.1%)  LeanCPSA.Strand.buildGraph  ⟨private⟩
+                            1745  (  1.4%)  LeanCPSA.Strand.newPreskel
+                              1414  (  1.1%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                         42280  ( 34.1%)  LeanCPSA.Strand.changeLocations  ⟨private⟩
+                           11896  (  9.6%)  LeanCPSA.Strand.newPreskel
+                              6815  (  5.5%)  LeanCPSA.Strand.nodeGraphCloseAll__loop  ⟨private⟩
+                              2672  (  2.2%)  LeanCPSA.Strand.nodeGraphCloseAll__loop_inner  ⟨private⟩
+                            9595  (  7.7%)  LeanCPSA.Strand.newPreskel
+                              9522  (  7.7%)  LeanCPSA.Strand.graphClose_fixpoint  ⟨private⟩
+                                  5468  (  4.4%)  List.foldl  [for LeanCPSA.Strand.graphClose_spec__3]
+                                    2434  (  2.0%)  List.filterMapTR_go  [for LeanCPSA.Strand.graphClose_spec__1]
+                                        2078  (  1.7%)  LeanCPSA.Strand_newPreskel___lam__0__.boxed
+                                  3638  (  2.9%)  List.foldl  [for LeanCPSA.Strand.graphClose_spec__3]
+                                    3005  (  2.4%)  List.foldl  [for LeanCPSA.Strand.graphClose_spec__2]
+                            5701  (  4.6%)  LeanCPSA.Strand.newPreskel
+                              5149  (  4.2%)  LeanCPSA.Strand.mkGist
+                                4948  (  4.0%)  LeanCPSA.Strand.instVars  ⟨private⟩
+                                  2988  (  2.4%)  List.foldl
+                                      2715  (  2.2%)  Lean.RBNode_insert [red]
+                                  1652  (  1.3%)  LeanCPSA.Strand.addIvars
+                            5412  (  4.4%)  LeanCPSA.Strand.newPreskel
+                              5302  (  4.3%)  LeanCPSA.Strand.factVars
+                                3119  (  2.5%)  List.foldl
+                                    2846  (  2.3%)  Lean.RBNode_insert [red]
+                                1826  (  1.5%)  LeanCPSA.Strand.addIvars
+                            2527  (  2.0%)  LeanCPSA.Strand.newPreskel
+                              2496  (  2.0%)  List.mapTR_loop
+                                2401  (  1.9%)  LeanCPSA.Strand.originationNodes
+                                  2251  (  1.8%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                    1321  (  1.1%)  LeanCPSA.Protocol.originationPos__loop  ⟨private⟩
+                            2279  (  1.8%)  LeanCPSA.Strand.newPreskel
+                              1331  (  1.1%)  LeanCPSA.Strand.buildGraph  ⟨private⟩
+                            1697  (  1.4%)  LeanCPSA.Strand.newPreskel
+                              1334  (  1.1%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                         26967  ( 21.8%)  LeanCPSA.Strand.changeLocations  ⟨private⟩
+                           26953  ( 21.8%)  LeanCPSA.Strand.changeStrands  ⟨private⟩
+                             21260  ( 17.2%)  LeanCPSA.Strand.foldMapM [red]  ⟨private⟩
+                               17361  ( 14.0%)  LeanCPSA.Strand.foldMapM [red]  ⟨private⟩
+                                 13573  ( 11.0%)  LeanCPSA.Strand.foldMapM [red]  ⟨private⟩
+                                    9747  (  7.9%)  LeanCPSA.Strand.foldMapM [red]  ⟨private⟩
+                                      5957  (  4.8%)  LeanCPSA.Strand.foldMapM [red]  ⟨private⟩
+                                        3310  (  2.7%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go [red]
+                                            3307  (  2.7%)  LeanCPSA.Strand.changeStrand [boxed]  ⟨private⟩
+                                        2593  (  2.1%)  LeanCPSA.Strand.foldMapM [red]  ⟨private⟩
+                                          2003  (  1.6%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go [red]
+                                              1998  (  1.6%)  LeanCPSA.Strand.changeStrand [boxed]  ⟨private⟩
+                                      3725  (  3.0%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go [red]
+                                          3718  (  3.0%)  LeanCPSA.Strand.changeStrand [boxed]  ⟨private⟩
+                                    3772  (  3.0%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go [red]
+                                        3766  (  3.0%)  LeanCPSA.Strand.changeStrand [boxed]  ⟨private⟩
+                                  3731  (  3.0%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go [red]
+                                      3724  (  3.0%)  LeanCPSA.Strand.changeStrand [boxed]  ⟨private⟩
+                                3835  (  3.1%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go [red]
+                                    3830  (  3.1%)  LeanCPSA.Strand.changeStrand [boxed]  ⟨private⟩
+                              5577  (  4.5%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go [red]
+                                  5574  (  4.5%)  LeanCPSA.Strand.changeStrand [boxed]  ⟨private⟩
+                                    1748  (  1.4%)  LeanCPSA.Strand.bldInstance__loop  ⟨private⟩
+                    5283  (  4.3%)  LeanCPSA.Strand.generalize
+                  3702  (  3.0%)  LeanCPSA.Cohort.reduce
+                    3693  (  3.0%)  LeanCPSA.Cohort.findTest_loop  ⟨private⟩
+                      3693  (  3.0%)  LeanCPSA.Cohort.testNode  ⟨private⟩
+                        3692  (  3.0%)  LeanCPSA.Cohort.testNode_loop  ⟨private⟩
+                          3691  (  3.0%)  LeanCPSA.Cohort.testNode_loop_placesLoop  ⟨private⟩
+                            3467  (  2.8%)  LeanCPSA.Cohort.solveNode  ⟨private⟩
+                              3467  (  2.8%)  LeanCPSA.Cohort.augmentations  ⟨private⟩
+                                3467  (  2.8%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                  3433  (  2.8%)  LeanCPSA.Cohort.roleAugs  ⟨private⟩
+                                    3241  (  2.6%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                      2866  (  2.3%)  LeanCPSA.Strand.augment
+                                        2584  (  2.1%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                          2584  (  2.1%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                            2581  (  2.1%)  LeanCPSA.Strand.augDisplaceStrands
+                                              1992  (  1.6%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                                1773  (  1.4%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                                  1773  (  1.4%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+                                                    1771  (  1.4%)  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+
+  TOP 25 FUNCTIONS by inclusive sample count
+──────────────────────────────────────────────────────────────────────────────────────────
+    count       %  bar                   function
+  ───────  ──────  ────────────────────  ────────────────────────────────────────
+   123849  100.0%  ████████████████████  main
+   123849  100.0%  ████████████████████  _lean_main
+   123849  100.0%  ████████████████████  Main.go  ⟨private⟩
+   123847  100.0%  ████████████████████  LeanCPSA.Reduction.runSolver
+   123700   99.9%  ████████████████████  LeanCPSA.Reduction.breadth
+   123700   99.9%  ████████████████████  List.mapTR_loop
+   123399   99.6%  ████████████████████  LeanCPSA.Reduction.branch  ⟨private⟩
+   119143   96.2%  ███████████████████░  LeanCPSA.Cohort.reduceNoTest
+   113760   91.9%  ██████████████████░░  LeanCPSA.Strand.generalize
+   113659   91.8%  ██████████████████░░  __private_Init_Data_List_Impl_0__List_flatMapTR_go
+    43077   34.8%  ███████░░░░░░░░░░░░░  LeanCPSA.Strand.changeLocations  ⟨private⟩
+    26953   21.8%  ████░░░░░░░░░░░░░░░░  LeanCPSA.Strand.changeStrands  ⟨private⟩
+    21260   17.2%  ███░░░░░░░░░░░░░░░░░  LeanCPSA.Strand.foldMapM [red]  ⟨private⟩
+    11979    9.7%  ██░░░░░░░░░░░░░░░░░░  LeanCPSA.Strand.newPreskel
+     9751    7.9%  ██░░░░░░░░░░░░░░░░░░  LeanCPSA.Strand.graphClose_fixpoint  ⟨private⟩
+     6815    5.5%  █░░░░░░░░░░░░░░░░░░░  LeanCPSA.Strand.nodeGraphCloseAll__loop  ⟨private⟩
+     5577    4.5%  █░░░░░░░░░░░░░░░░░░░  __private_Init_Data_List_Impl_0__List_flatMapTR_go [red]
+     5574    4.5%  █░░░░░░░░░░░░░░░░░░░  LeanCPSA.Strand.changeStrand [boxed]  ⟨private⟩
+     5562    4.5%  █░░░░░░░░░░░░░░░░░░░  List.foldl  [for LeanCPSA.Strand.graphClose_spec__3]
+     5344    4.3%  █░░░░░░░░░░░░░░░░░░░  LeanCPSA.Strand.factVars
+     5254    4.2%  █░░░░░░░░░░░░░░░░░░░  LeanCPSA.Strand.mkGist
+     5083    4.1%  █░░░░░░░░░░░░░░░░░░░  LeanCPSA.Strand.instVars  ⟨private⟩
+     3702    3.0%  █░░░░░░░░░░░░░░░░░░░  LeanCPSA.Cohort.reduce
+     3693    3.0%  █░░░░░░░░░░░░░░░░░░░  LeanCPSA.Cohort.findTest_loop  ⟨private⟩
+     3693    3.0%  █░░░░░░░░░░░░░░░░░░░  LeanCPSA.Cohort.testNode  ⟨private⟩
+══════════════════════════════════════════════════════════════════════════════════════════

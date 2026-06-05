@@ -1,0 +1,2 @@
+file,hs_par_ms,hs_par_rss_kb,hs_par_ok,hs_par_correct,hs_n1_ms,hs_n1_rss_kb,hs_n1_ok,hs_n1_correct,lean_ms,lean_rss_kb,lean_ok,lean_correct,ratio_n1,ratio_par
+blanchet.scm,50.865084,72736,True,True,19.483374999999985,14272,True,True,26200.997792,37032,True,True,1344.7874298985682,515.1077267856276

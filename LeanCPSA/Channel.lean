@@ -1,7 +1,7 @@
 /-
 LeanCPSA.Channel
 
-Port of CPSA.Channel (MITRE cpsa v4.4.9).
+Port of CPSA.Channel (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 

@@ -1,7 +1,7 @@
 /-
 LeanCPSA.Lib.Entry
 
-Port of CPSA.Lib.Entry (MITRE cpsa v4.4.8).
+Port of CPSA.Lib.Entry (MITRE cpsa).
 
 Copyright (c) 2026 Paul D. Rowe
 
@@ -12,21 +12,6 @@ Copyright (c) 2009 The MITRE Corporation
 This program is free software: you can redistribute it and/or
 modify it under the terms of the BSD License as published by the
 University of California.
--/
-
-/-
-The IO-bound functions (`start`, `opts`, `openInput`, `usage`, `abort`,
-`success`, `readSExpr`, `gentlyReadSExpr`, `tryIO`, `outputHandle`,
-`filterOptions`, `filterInterp`) are omitted — they depend on
-`System.IO`, `System.Exit`, `System.Console.GetOpt`, and Haskell's
-exception model, none of which have direct Lean analogues.
-
-What IS ported:
-  - `defaultMargin`, `defaultIndent` — formatting constants
-  - `cpsaVersion`                    — version string (hardcoded for v4.4.8)
-  - `comment`                        — build a comment S-expression
-  - `writeSExpr`, `writeLnSExpr`     — pure String renderers (no Handle)
-  - `writeComment`                   — convenience wrapper
 -/
 
 import LeanCPSA.Lib.SExpr
@@ -44,8 +29,8 @@ def defaultIndent : Int := 2
 
 -- ── Version ───────────────────────────────────────────────────────────────────
 
-/-- CPSA version string.  Mirrors `cpsaVersion` (hardcoded for v4.4.8). -/
-def cpsaVersion : String := "CPSA 4.4.8"
+/-- CPSA version string.  Mirrors `cpsaVersion` (hardcoded for v4.4.9). -/
+def cpsaVersion : String := "LeanCPSA 0.1.1 (CPSA 4.4.9)"
 
 -- ── S-expression helpers ──────────────────────────────────────────────────────
 

@@ -1,0 +1,382 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+"""
+perftst — Compare performance of cpsa4 (Haskell) vs leancpsa (Lean).
+
+For each .scm file in the target directory that has a matching .tst reference,
+both tools are run and their wall-clock time and peak RSS are recorded.
+cpsa4diff is used to verify correctness of both outputs.
+
+Usage:
+  ./perftst [--dir DIR] [--repeat N] [--sort {ratio|lean|hs|name}]
+            [--top N] [--output FILE]
+
+  --dir DIR     Directory with .scm and .tst files
+                (default: ../srccpsa-4.4.9/tst)
+  --repeat N    Runs per file; best wall time is reported (default: 1)
+  --sort KEY    Sort order for the top-N table printed at the end
+                  ratio  slowdown (lean / cpsa4-N1)   [default]
+                  lean   absolute lean time (slowest first)
+                  hs     absolute cpsa4-N1 time (slowest first)
+                  name   alphabetical
+  --top N       Print the N worst entries in sorted order at the end
+                (default: 20; 0 = print all)
+  --output FILE CSV output path
+                (default: perf/results/YYYY-MM-DD_HH-MM-SS.csv)
+"""
+
+import argparse
+import csv
+import datetime
+import math
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+from statistics import geometric_mean, median, quantiles
+
+# ── Paths ──────────────────────────────────────────────────────────────────────
+
+SCRIPT_DIR = Path(__file__).parent.resolve()
+LEAN_BIN   = SCRIPT_DIR / ".lake" / "build" / "bin" / "leancpsa"
+HS_BIN     = Path(os.path.expanduser("~/.cabal/bin/cpsa4"))
+DIFF_BIN   = Path(os.path.expanduser("~/.cabal/bin/cpsa4diff"))
+RESULTS_DIR = SCRIPT_DIR / "perf" / "results"
+
+DEFAULT_TST_DIR = SCRIPT_DIR.parent / "srccpsa-4.4.9" / "tst"
+
+# Haskell RTS flag sets
+RTS_PARALLEL = ["+RTS", "-M512m", "-N",  "-RTS"]
+RTS_SINGLE   = ["+RTS", "-M512m", "-N1", "-RTS"]
+
+TIMEOUT_SECS = 300.0   # per run; treated as infinity in the table
+
+# ── Low-level timing ───────────────────────────────────────────────────────────
+
+def _run_timed(cmd: list[str]) -> tuple[float, int | None, int]:
+    """
+    Run *cmd* under /usr/bin/time -l (macOS).  The program's own stderr is
+    suppressed so it doesn't pollute the timing output.
+
+    Returns (wall_ms, rss_kb_or_None, returncode).
+    On timeout returns (inf, None, -1).
+    """
+    # Wrap in `sh -c '... 2>/dev/null'` so the child's stderr is suppressed
+    # while /usr/bin/time's stderr (timing stats) still reaches our pipe.
+    shell_cmd = " ".join(shlex.quote(c) for c in cmd)
+    wrapped = ["/usr/bin/time", "-l", "/bin/sh", "-c", f"{shell_cmd} 2>/dev/null"]
+
+    t0 = time.perf_counter()
+    try:
+        result = subprocess.run(
+            wrapped,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            timeout=TIMEOUT_SECS,
+        )
+    except subprocess.TimeoutExpired:
+        return math.inf, None, -1
+    wall_ms = (time.perf_counter() - t0) * 1000
+
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    rss_kb = None
+    m = re.search(r"(\d+)\s+maximum resident set size", stderr)
+    if m:
+        rss_kb = int(m.group(1)) // 1024   # bytes → KB
+
+    return wall_ms, rss_kb, result.returncode
+
+
+def run_timed(cmd: list[str], repeat: int = 1) -> tuple[float, int | None, int]:
+    """
+    Run *cmd* up to *repeat* times; return the trial with the best wall time,
+    keeping that trial's RSS and returncode.  Stops early if the first run
+    returns non-zero.
+    """
+    best_ms, best_rss, best_rc = _run_timed(cmd)
+    if best_rc != 0:
+        return best_ms, best_rss, best_rc
+    for _ in range(repeat - 1):
+        ms, rss, rc = _run_timed(cmd)
+        if ms < best_ms:
+            best_ms, best_rss, best_rc = ms, rss, rc
+    return best_ms, best_rss, best_rc
+
+
+# ── Correctness check ──────────────────────────────────────────────────────────
+
+def check_correct(tst: Path, out: Path) -> bool:
+    """True if cpsa4diff reports the two files as equivalent."""
+    if not tst.exists() or not out.exists():
+        return False
+    r = subprocess.run(
+        [str(DIFF_BIN), str(tst), str(out)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return r.returncode == 0
+
+
+# ── Per-file benchmark ─────────────────────────────────────────────────────────
+
+def bench_file(scm: Path, tst: Path, repeat: int = 1) -> dict:
+    """
+    Benchmark *scm* with three tool configurations.
+
+    Returns a dict with keys:
+      file
+      hs_par_ms, hs_par_rss_kb, hs_par_ok, hs_par_correct
+      hs_n1_ms,  hs_n1_rss_kb,  hs_n1_ok,  hs_n1_correct
+      lean_ms,   lean_rss_kb,   lean_ok,   lean_correct
+      ratio_n1, ratio_par
+    """
+    row: dict = {"file": scm.name}
+
+    configs = [
+        ("hs_par", [str(HS_BIN)] + RTS_PARALLEL),
+        ("hs_n1",  [str(HS_BIN)] + RTS_SINGLE),
+        ("lean",   [str(LEAN_BIN)]),
+    ]
+
+    for label, base_cmd in configs:
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp:
+            out_path = Path(tmp.name)
+        try:
+            cmd = base_cmd + ["-o", str(out_path), str(scm)]
+            ms, rss, rc = run_timed(cmd, repeat=repeat)
+            ok = (rc == 0)
+            correct = ok and check_correct(tst, out_path)
+        finally:
+            out_path.unlink(missing_ok=True)
+
+        row[f"{label}_ms"]     = ms
+        row[f"{label}_rss_kb"] = rss
+        row[f"{label}_ok"]     = ok
+        row[f"{label}_correct"] = correct
+
+    # Slowdown ratios (lean / hs)
+    for denom_label, ratio_key in [("hs_n1", "ratio_n1"), ("hs_par", "ratio_par")]:
+        d = row[f"{denom_label}_ms"]
+        row[ratio_key] = (row["lean_ms"] / d) if (d and d != math.inf and d > 0) else None
+
+    return row
+
+
+# ── Formatting helpers ─────────────────────────────────────────────────────────
+
+def _fmt_ms(v: float | None) -> str:
+    if v is None:         return "       ?"
+    if v == math.inf:     return " timeout"
+    if v >= 60_000:       return f"{v/60000:6.1f}m "
+    if v >= 1_000:        return f"{v/1000:6.2f}s "
+    return                       f"{v:7.1f}ms"
+
+def _fmt_ratio(v: float | None) -> str:
+    if v is None:     return "    ?"
+    return                   f"{v:5.2f}×"
+
+def _status(row: dict) -> str:
+    if not row["lean_ok"] or not row["hs_n1_ok"]: return "ERROR"
+    if not row["lean_correct"]:                    return "WRONG"
+    return "ok"
+
+
+# ── Summary statistics ─────────────────────────────────────────────────────────
+
+def _pct(ts: list[float], p: int) -> float:
+    """p-th percentile (0-100)."""
+    return quantiles(sorted(ts), n=100)[p - 1]
+
+
+def print_summary(rows: list[dict]) -> None:
+    good = [r for r in rows
+            if r["lean_ok"] and r["hs_n1_ok"]
+            and r["lean_correct"] and r["hs_n1_correct"]]
+    skipped = len(rows) - len(good)
+    n = len(good)
+    if n == 0:
+        print("\nNo valid results to summarise.")
+        return
+
+    lean_ms   = [r["lean_ms"]   for r in good]
+    par_ms    = [r["hs_par_ms"] for r in good]
+    n1_ms     = [r["hs_n1_ms"]  for r in good]
+    ratios_n1  = [r["ratio_n1"]  for r in good if r["ratio_n1"]  is not None]
+    ratios_par = [r["ratio_par"] for r in good if r["ratio_par"] is not None]
+
+    def wall_stats(ts: list[float]) -> tuple[float, float, float]:
+        return sum(ts), median(ts), _pct(ts, 90)
+
+    lean_tot, lean_med, lean_p90   = wall_stats(lean_ms)
+    par_tot,  par_med,  par_p90    = wall_stats(par_ms)
+    n1_tot,   n1_med,   n1_p90     = wall_stats(n1_ms)
+
+    W = 70
+    print(f"\n{'═'*W}")
+    skipped_note = f"  ({skipped} excluded — error or wrong output)" if skipped else ""
+    print(f"  Summary — {n} tests{skipped_note}")
+    print(f"{'═'*W}")
+    print(f"\n  {'':28}  {'total':>8}  {'median':>8}  {'p90':>8}")
+    print(f"  {'cpsa4 (parallel, -N)':28}  {par_tot/1000:7.2f}s  {par_med:7.1f}ms  {par_p90:7.1f}ms")
+    print(f"  {'cpsa4 (single-core, -N1)':28}  {n1_tot/1000:7.2f}s  {n1_med:7.1f}ms  {n1_p90:7.1f}ms")
+    print(f"  {'leancpsa':28}  {lean_tot/1000:7.2f}s  {lean_med:7.1f}ms  {lean_p90:7.1f}ms")
+
+    if ratios_n1:
+        gm_n1   = geometric_mean(ratios_n1)
+        med_n1  = median(ratios_n1)
+        p90_n1  = _pct(ratios_n1, 90)
+        print(f"\n  Slowdown leancpsa / cpsa4")
+        print(f"  {'vs. cpsa4 -N1 (fair single-core)':40}  "
+              f"geomean {gm_n1:.2f}×   median {med_n1:.2f}×   p90 {p90_n1:.2f}×")
+        if ratios_par:
+            gm_par  = geometric_mean(ratios_par)
+            med_par = median(ratios_par)
+            p90_par = _pct(ratios_par, 90)
+            print(f"  {'vs. cpsa4 -N (parallel, real-world)':40}  "
+                  f"geomean {gm_par:.2f}×   median {med_par:.2f}×   p90 {p90_par:.2f}×")
+
+    lean_rss = [r["lean_rss_kb"]  for r in good if r.get("lean_rss_kb")]
+    hs_rss   = [r["hs_n1_rss_kb"] for r in good if r.get("hs_n1_rss_kb")]
+    if lean_rss and hs_rss:
+        print(f"\n  Peak RSS")
+        print(f"  {'cpsa4 -N1':28}  median {median(hs_rss)/1024:5.1f} MB   "
+              f"max {max(hs_rss)/1024:5.1f} MB")
+        print(f"  {'leancpsa':28}  median {median(lean_rss)/1024:5.1f} MB   "
+              f"max {max(lean_rss)/1024:5.1f} MB")
+    print()
+
+
+def print_top(rows: list[dict], sort_key: str, top_n: int) -> None:
+    """Print the top-N rows sorted by sort_key."""
+    key_fn = {
+        "ratio": lambda r: r.get("ratio_n1")  or -1,
+        "lean":  lambda r: r.get("lean_ms")   or -1,
+        "hs":    lambda r: r.get("hs_n1_ms")  or -1,
+        "name":  lambda r: r["file"],
+    }[sort_key]
+    reverse = sort_key != "name"
+    ordered = sorted(rows, key=key_fn, reverse=reverse)
+    if top_n > 0:
+        ordered = ordered[:top_n]
+
+    hdr  = (f"{'file':<34}  {'hs-par':>8}  {'hs-N1':>8}  {'lean':>8}  "
+            f"{'÷N1':>6}  {'÷par':>6}  status")
+    sep  = "─" * len(hdr)
+    label = "All results" if top_n == 0 else f"Top {len(ordered)} by {sort_key}"
+    print(f"\n  {label} (sorted by {sort_key})")
+    print(f"  {sep}")
+    print(f"  {hdr}")
+    print(f"  {sep}")
+    for r in ordered:
+        print(f"  {r['file']:<34}  {_fmt_ms(r['hs_par_ms']):>8}  "
+              f"{_fmt_ms(r['hs_n1_ms']):>8}  {_fmt_ms(r['lean_ms']):>8}  "
+              f"{_fmt_ratio(r.get('ratio_n1')):>6}  "
+              f"{_fmt_ratio(r.get('ratio_par')):>6}  "
+              f"{_status(r)}")
+    print(f"  {sep}")
+
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    ap = argparse.ArgumentParser(
+        description="cpsa4 (Haskell) vs leancpsa (Lean) performance comparison",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    ap.add_argument("--dir",    default=str(DEFAULT_TST_DIR),
+                    metavar="DIR",   help="Directory containing .scm and .tst files")
+    ap.add_argument("--repeat", default=1, type=int,
+                    metavar="N",     help="Runs per file; best wall time is reported")
+    ap.add_argument("--sort",   default="ratio",
+                    choices=["ratio", "lean", "hs", "name"],
+                    help="Sort key for the end-of-run table")
+    ap.add_argument("--top",    default=20, type=int,
+                    metavar="N",     help="Rows to show in sorted table (0 = all)")
+    ap.add_argument("--output", default=None,
+                    metavar="FILE",  help="CSV output path (default: perf/results/TIMESTAMP.csv)")
+    ap.add_argument("files", nargs="*", metavar="FILE",
+                    help="Specific .scm files (or stems) to benchmark; default: all in --dir")
+    args = ap.parse_args()
+
+    # Validate binaries
+    for path, name in [(LEAN_BIN, "leancpsa"), (HS_BIN, "cpsa4"), (DIFF_BIN, "cpsa4diff")]:
+        if not path.exists():
+            print(f"Error: {name} not found at {path}", file=sys.stderr)
+            sys.exit(1)
+
+    tst_dir = Path(args.dir)
+    all_scm = sorted(p for p in tst_dir.glob("*.scm")
+                     if (tst_dir / (p.stem + ".tst")).exists())
+    if args.files:
+        # Resolve each supplied name to a path in tst_dir (accept bare stem or full name)
+        wanted = {Path(f).stem for f in args.files}
+        scm_files = [p for p in all_scm if p.stem in wanted]
+        missing = wanted - {p.stem for p in scm_files}
+        if missing:
+            print(f"Warning: no .scm/.tst pair found for: {', '.join(sorted(missing))}", file=sys.stderr)
+    else:
+        scm_files = all_scm
+    if not scm_files:
+        print(f"No .scm files with matching .tst found in {tst_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    csv_path = Path(args.output) if args.output else RESULTS_DIR / f"{ts}.csv"
+
+    # ── Live-streaming table header ──────────────────────────────────────────
+    hdr = (f"{'file':<34}  {'hs-par':>8}  {'hs-N1':>8}  {'lean':>8}  "
+           f"{'÷N1':>6}  {'÷par':>6}  status")
+    sep = "─" * len(hdr)
+    n_files = len(scm_files)
+    dir_note = str(tst_dir).replace(str(Path.home()), "~")
+    print(f"\nRunning {n_files} tests from {dir_note}")
+    if args.repeat > 1:
+        print(f"(best of {args.repeat} runs per file)")
+    print()
+    print(sep)
+    print(hdr)
+    print(sep)
+    sys.stdout.flush()
+
+    rows: list[dict] = []
+    for i, scm in enumerate(scm_files, 1):
+        tst = tst_dir / (scm.stem + ".tst")
+        row = bench_file(scm, tst, repeat=args.repeat)
+        rows.append(row)
+
+        print(f"  {scm.name:<32}  {_fmt_ms(row['hs_par_ms']):>8}  "
+              f"{_fmt_ms(row['hs_n1_ms']):>8}  {_fmt_ms(row['lean_ms']):>8}  "
+              f"{_fmt_ratio(row.get('ratio_n1')):>6}  "
+              f"{_fmt_ratio(row.get('ratio_par')):>6}  "
+              f"{_status(row)}  [{i}/{n_files}]")
+        sys.stdout.flush()
+
+    print(sep)
+
+    # ── Write CSV ────────────────────────────────────────────────────────────
+    csv_fields = [
+        "file",
+        "hs_par_ms", "hs_par_rss_kb", "hs_par_ok", "hs_par_correct",
+        "hs_n1_ms",  "hs_n1_rss_kb",  "hs_n1_ok",  "hs_n1_correct",
+        "lean_ms",   "lean_rss_kb",   "lean_ok",   "lean_correct",
+        "ratio_n1",  "ratio_par",
+    ]
+    with open(csv_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=csv_fields, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    print(f"\nCSV results written to {csv_path}")
+
+    # ── Summary and top-N table ───────────────────────────────────────────────
+    print_summary(rows)
+    print_top(rows, sort_key=args.sort, top_n=args.top)
+
+
+if __name__ == "__main__":
+    main()
