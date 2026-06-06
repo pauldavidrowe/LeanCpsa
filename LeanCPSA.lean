@@ -1,4 +1,4 @@
--- This is the root library file for the cpsa2lean project.
+-- This is the root library file for the leancpsa project.
 -- It re-exports modules from the LeanCPSA/ directory.
 --
 -- As the Haskell CPSA source is ported, add `import` lines here for each

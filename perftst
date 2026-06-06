@@ -9,11 +9,13 @@ both tools are run and their wall-clock time and peak RSS are recorded.
 corresponding .tst).  cpsa4diff is used to verify correctness of both outputs.
 
 Usage:
-  ./perftst [--dir DIR] [--repeat N] [--sort {ratio|lean|hs|name}]
-            [--top N] [--output FILE]
+  ./perftst [--dir DIR] [--ext {scm|lsp|both}] [--repeat N]
+            [--sort {ratio|lean|hs|name}] [--top N] [--output FILE]
 
-  --dir DIR     Directory with .scm and .tst files
+  --dir DIR     Directory with .scm/.lsp and .tst files
                 (default: ../srccpsa-4.4.9/tst)
+  --ext KIND    Which inputs to benchmark: scm, lsp, or both
+                (default: both; .scm files first, then .lsp)
   --repeat N    Runs per file; best wall time is reported (default: 1)
   --sort KEY    Sort order for the top-N table printed at the end
                   ratio  slowdown (lean / cpsa4-N1)   [default]
@@ -54,7 +56,7 @@ DEFAULT_TST_DIR = SCRIPT_DIR.parent / "srccpsa-4.4.9" / "tst"
 RTS_PARALLEL = ["+RTS", "-M512m", "-N",  "-RTS"]
 RTS_SINGLE   = ["+RTS", "-M512m", "-N1", "-RTS"]
 
-TIMEOUT_SECS = 300.0   # per run; treated as infinity in the table
+TIMEOUT_SECS = 600.0   # per run; treated as infinity in the table
 
 # ── Low-level timing ───────────────────────────────────────────────────────────
 
@@ -122,6 +124,22 @@ def check_correct(tst: Path, out: Path) -> bool:
     return r.returncode == 0
 
 
+# Marker CPSA writes into its OUTPUT when it aborts at a resource limit
+# (strand bound or step limit): e.g. (comment "Strand bound exceeded--aborting
+# run") or (comment "Step limit exceeded--aborting run").  Both cpsa4 and
+# leancpsa emit this, but they disagree on the process exit code (cpsa4 returns
+# non-zero, leancpsa returns 0).  Such a run is a *valid bounded analysis*, not a
+# failure, so we treat it as ok-for-comparison regardless of exit code.
+_LIMIT_ABORT_RE = re.compile(r"exceeded--aborting run")
+
+def limit_aborted(out: Path) -> bool:
+    """True if the output shows a strand-bound / step-limit abort."""
+    try:
+        return bool(_LIMIT_ABORT_RE.search(out.read_text(errors="replace")))
+    except OSError:
+        return False
+
+
 # ── Per-file benchmark ─────────────────────────────────────────────────────────
 
 def bench_file(scm: Path, tst: Path, repeat: int = 1) -> dict:
@@ -149,15 +167,20 @@ def bench_file(scm: Path, tst: Path, repeat: int = 1) -> dict:
         try:
             cmd = base_cmd + ["-o", str(out_path), str(scm)]
             ms, rss, rc = run_timed(cmd, repeat=repeat)
-            ok = (rc == 0)
+            # A strand-bound / step-limit abort is a valid bounded run even when
+            # the tool exits non-zero (cpsa4 does; leancpsa doesn't).  Detect it
+            # from the output so the two tools compare on equal footing.
+            limited = limit_aborted(out_path)
+            ok = (rc == 0) or limited
             correct = ok and check_correct(tst, out_path)
         finally:
             out_path.unlink(missing_ok=True)
 
-        row[f"{label}_ms"]     = ms
-        row[f"{label}_rss_kb"] = rss
-        row[f"{label}_ok"]     = ok
+        row[f"{label}_ms"]      = ms
+        row[f"{label}_rss_kb"]  = rss
+        row[f"{label}_ok"]      = ok
         row[f"{label}_correct"] = correct
+        row[f"{label}_limited"] = limited
 
     # Slowdown ratios (lean / hs)
     for denom_label, ratio_key in [("hs_n1", "ratio_n1"), ("hs_par", "ratio_par")]:
@@ -183,6 +206,8 @@ def _fmt_ratio(v: float | None) -> str:
 def _status(row: dict) -> str:
     if not row["lean_ok"] or not row["hs_n1_ok"]: return "ERROR"
     if not row["lean_correct"]:                    return "WRONG"
+    # Mark runs that compared a bounded analysis (strand bound / step limit hit).
+    if row.get("lean_limited") or row.get("hs_n1_limited"): return "ok (bnd)"
     return "ok"
 
 
@@ -300,8 +325,11 @@ def main() -> None:
                     metavar="N",     help="Rows to show in sorted table (0 = all)")
     ap.add_argument("--output", default=None,
                     metavar="FILE",  help="CSV output path (default: perf/results/TIMESTAMP.csv)")
+    ap.add_argument("--ext",    default="both", choices=["scm", "lsp", "both"],
+                    help="Which input files to benchmark: scm, lsp, or both "
+                         "(default: both; .scm first, then .lsp)")
     ap.add_argument("files", nargs="*", metavar="FILE",
-                    help="Specific .scm files (or stems) to benchmark; default: all in --dir")
+                    help="Specific .scm/.lsp files (or stems) to benchmark; default: all in --dir")
     args = ap.parse_args()
 
     # Validate binaries
@@ -317,8 +345,9 @@ def main() -> None:
         return sorted(p for p in tst_dir.glob(f"*{ext}")
                       if (tst_dir / (p.stem + ".tst")).exists())
 
-    # Run .scm comparisons first, then any .lsp comparisons.
-    all_inputs = pairs_for(".scm") + pairs_for(".lsp")
+    # Select extensions per --ext; with "both", run .scm first, then .lsp.
+    exts = {"scm": [".scm"], "lsp": [".lsp"], "both": [".scm", ".lsp"]}[args.ext]
+    all_inputs = [p for ext in exts for p in pairs_for(ext)]
     if args.files:
         # Resolve each supplied name to a path in tst_dir (accept bare stem or full name)
         wanted = {Path(f).stem for f in args.files}
@@ -330,7 +359,8 @@ def main() -> None:
     else:
         test_files = all_inputs
     if not test_files:
-        print(f"No .scm or .lsp files with matching .tst found in {tst_dir}", file=sys.stderr)
+        want = " or ".join(exts)
+        print(f"No {want} files with matching .tst found in {tst_dir}", file=sys.stderr)
         sys.exit(1)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -370,9 +400,9 @@ def main() -> None:
     # ── Write CSV ────────────────────────────────────────────────────────────
     csv_fields = [
         "file",
-        "hs_par_ms", "hs_par_rss_kb", "hs_par_ok", "hs_par_correct",
-        "hs_n1_ms",  "hs_n1_rss_kb",  "hs_n1_ok",  "hs_n1_correct",
-        "lean_ms",   "lean_rss_kb",   "lean_ok",   "lean_correct",
+        "hs_par_ms", "hs_par_rss_kb", "hs_par_ok", "hs_par_correct", "hs_par_limited",
+        "hs_n1_ms",  "hs_n1_rss_kb",  "hs_n1_ok",  "hs_n1_correct",  "hs_n1_limited",
+        "lean_ms",   "lean_rss_kb",   "lean_ok",   "lean_correct",   "lean_limited",
         "ratio_n1",  "ratio_par",
     ]
     with open(csv_path, "w", newline="") as f:

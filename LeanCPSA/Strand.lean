@@ -2343,7 +2343,7 @@ def deleteNodeRest (k : Preskel) (gen : Gen) (n : Node) (insts' : List Instance)
     (k.kunique.filter fun t => terms.any (carriedBy t))
     (k.kuniqgen.filter fun t => !lostgen n t)
     (k.kabsent.filter fun (x, y) => !lostgen n x && nonOrig x && nonOrig y)
-    (k.kprecur.map (updateNode n.1 n.1) |>.erase n)
+    ((k.kprecur.erase n).map (updateNode n.1 n.1))
     (k.kgenSt.filter fun t =>
       foldVars (fun b v => b && vs.contains v) true t)
     (k.kconf.filter (chans.contains))
