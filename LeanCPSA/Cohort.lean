@@ -633,8 +633,15 @@ def specialization (k k' : Preskel) (mapping : List Sid) : List Preskel :=
 /-- Maximize: find generalization(s) of a realized skeleton.
     Mirrors `maximize :: Preskel -> [Preskel]`. -/
 def maximize (k : Preskel) : List Preskel :=
+  -- Candidates from `generalize` use `newPreskelBasic` (no TC).
+  -- We add TC before `simplify` so that rule predicates (`rprec`, `gprec`,
+  -- `urprec`) can access `kgpOrds`/`kgpOrdsAll`/`tc`.
+  -- `addExpensiveFields` is idempotent (no-op if `tcComputed` is already true),
+  -- so protocols without rules pay nothing here.
+  -- Early `preskelWellFormed` filter avoids paying TC for rejected candidates.
   let candidates := (generalize k).flatMap fun (k', sm) =>
-    simplify (updateStrandMap sm k')
+    if !preskelWellFormed k' then []
+    else simplify (addExpensiveFields (updateStrandMap sm k'))
   let rec iter : List Preskel → List Preskel
     | []         => []
     | k' :: rest =>
@@ -654,6 +661,10 @@ def reduceNoTest (mode : Mode) (k : Preskel) : ReduceRes :=
     | ks  => .Gnl ks
 
 /-- One reduction step: find a test node and compute the cohort, or generalize.
+    `addExpensiveFields` is applied before `simplify` (for rule predicate access)
+    and after (to ensure search-state skeletons have TC for `weakenOrderings`,
+    `deleteNodes`, etc.).  The `tcComputed` flag makes it idempotent so preskels
+    that already have TC (e.g. from `doRewriteOne → toSkeleton`) are not recomputed.
     Mirrors `reduce :: Mode -> Preskel -> ReduceRes`. -/
 def reduce (mode : Mode) (k : Preskel) : ReduceRes :=
   let (a, u) := avoid k
@@ -661,6 +672,7 @@ def reduce (mode : Mode) (k : Preskel) : ReduceRes :=
   | none    => reduceNoTest mode k
   | some ks =>
     .Crt (filterSame k (factorIsomorphicPreskels
-      (ks.foldr (fun k' soFar => simplify k' ++ soFar) [])))
+      (ks.foldr (fun k' soFar =>
+        (simplify (addExpensiveFields k')).map addExpensiveFields ++ soFar) [])))
 
 end LeanCPSA.Cohort

@@ -557,6 +557,7 @@ structure Preskel where
   pov        : Option Preskel
   strandids  : List Sid
   tc         : List Pair
+  tcComputed : Bool           -- true once addExpensiveFields has been called
   kgist      : Gist
   operation  : Operation
   krules     : List String
@@ -590,7 +591,7 @@ instance : Inhabited Preskel :=
      knon := [], kpnon := [], kunique := [], kuniqgen := [], kabsent := [],
      kprecur := [], kgenSt := [], kconf := [], kauth := [], kfacts := [],
      kfvars := [], kpriority := [], korig := [], kugen := [],
-     pov := none, strandids := [], tc := [], kgist := default,
+     pov := none, strandids := [], tc := [], tcComputed := false, kgist := default,
      operation := .New, krules := [], pprob := [], prob := [] }⟩
 
 -- Type aliases matching the Haskell source (defined after Preskel to avoid
@@ -859,8 +860,8 @@ private def newPreskelBasic (gen : Gen) (shared : Shared) (insts : List Instance
     insts      := insts,
     strands    := strands,
     orderings  := orderings',
-    kgpOrds    := [],       -- filled in by addExpensiveFields / wellFormedPreskel
-    kgpOrdsAll := [],       -- filled in by addExpensiveFields / wellFormedPreskel
+    kgpOrds    := [],       -- filled in by addExpensiveFields
+    kgpOrdsAll := [],       -- filled in by addExpensiveFields
     edges      := edges,
     knon       := non.eraseDups,
     kpnon      := pnon.eraseDups,
@@ -878,7 +879,8 @@ private def newPreskelBasic (gen : Gen) (shared : Shared) (insts : List Instance
     kugen      := ugen,
     pov        := pov,
     strandids  := strandids,
-    tc         := [],       -- filled in by addExpensiveFields / wellFormedPreskel
+    tc         := [],       -- filled in by addExpensiveFields
+    tcComputed := false,    -- set to true by addExpensiveFields
     kgist      := default,
     operation  := oper,
     krules     := rules,
@@ -888,25 +890,35 @@ private def newPreskelBasic (gen : Gen) (shared : Shared) (insts : List Instance
   if useCheckVars then checkVars k else k
 
 /-- Compute and attach the expensive transitive-closure fields (`kgpOrds`,
-    `kgpOrdsAll`, `tc`).  Called by `wellFormedPreskel` on surviving preskels,
-    so rejected preskels never pay this cost.  Also called by `newPreskel` so
-    that callers which need the full preskel immediately still get it. -/
+    `kgpOrdsAll`, `tc`).  Idempotent: if `k.tcComputed` is already true the
+    preskel is returned unchanged.  Call sites that need TC (e.g. `toSkeleton`,
+    before `simplify`) invoke this explicitly; `wellFormedPreskel` no longer does
+    so, keeping the hull-loop intermediates TC-free until truly needed. -/
 def addExpensiveFields (k : Preskel) : Preskel :=
-  let strands  := k.strands
-  let getNode (n : Node) :=
-    strands.get? n.1.toNat >>= fun s => s.nodes.get? n.2.toNat
-  let gpOrdsAll := nodeGraphCloseAll (nodeGraphEdges strands)
-  let gpOrds    := gpOrdsAll.filter (fun (p : Pair) => p.1.1 != p.2.1)
-  let tcEdges   := (graphClose getNode (graphEdges strands)).filter pairWellOrdered
-  { k with kgpOrdsAll := gpOrdsAll, kgpOrds := gpOrds, tc := tcEdges.map graphPair }
+  if k.tcComputed then k
+  else
+    let strands  := k.strands
+    let getNode (n : Node) :=
+      strands.get? n.1.toNat >>= fun s => s.nodes.get? n.2.toNat
+    let gpOrdsAll := nodeGraphCloseAll (nodeGraphEdges strands)
+    let gpOrds    := gpOrdsAll.filter (fun (p : Pair) => p.1.1 != p.2.1)
+    let tcEdges   := (graphClose getNode (graphEdges strands)).filter pairWellOrdered
+    { k with kgpOrdsAll := gpOrdsAll, kgpOrds := gpOrds,
+             tc := tcEdges.map graphPair, tcComputed := true }
 
 /-- Well-formedness check returning the preskeleton in a list (success) or
     an empty list (failure).  Replaces the Haskell `MonadFail` constraint.
-    On success, attaches the expensive transitive-closure fields so that callers
-    using `newPreskelBasic` never pay those costs for rejected preskels.
+    Does NOT attach TC fields — callers that need them must call
+    `addExpensiveFields` explicitly (e.g. `toSkeleton`, before `simplify`).
+    Keeping `wellFormedPreskel` TC-free means hull intermediates avoid paying
+    the O(n²–n³) closure cost; only the final surviving preskel pays it.
+    Does NOT attach the expensive TC fields — that is deferred to the pipeline
+    exit gate `homomorphismFilter`, so hull/skeletonize INTERMEDIATES (which call
+    `wellFormedPreskel` on every step) never pay the O(n²–n³) closure cost.  Only
+    the surviving outputs that pass through `homomorphismFilter` get TC.
     Mirrors `wellFormedPreskel :: MonadFail m => Preskel -> m Preskel`. -/
 def wellFormedPreskel (k : Preskel) : List Preskel :=
-  if preskelWellFormed k && traceWellFormed k then [addExpensiveFields k] else []
+  if preskelWellFormed k && traceWellFormed k then [k] else []
 
 /-- Build a preskeleton, computing all derived fields (graph, origination nodes,
     transitive closure, gist).  This is the internal constructor.
@@ -921,6 +933,15 @@ def newPreskel (gen : Gen) (shared : Shared) (insts : List Instance)
     absent precur genSt conf auth facts prio oper rules pprob prob pov)
 
 -- ── renewPreskel ─────────────────────────────────────────────────────────────
+
+/-- Rebuild all derived fields without TC.  Used for generalization candidates
+    where TC is deferred to `Cohort.maximize` (before `simplify`). -/
+private def renewPreskelBasic (k : Preskel) : Preskel :=
+  newPreskelBasic k.gen k.shared k.insts k.orderings
+    k.knon k.kpnon k.kunique k.kuniqgen
+    k.kabsent k.kprecur k.kgenSt k.kconf k.kauth
+    k.kfacts k.kpriority k.operation k.krules
+    k.pprob k.prob k.pov
 
 /-- Rebuild all derived fields of a preskeleton from its free-varying fields.
     Mirrors `renewPreskel :: Preskel -> Preskel`. -/
@@ -1796,14 +1817,24 @@ def validateMappingSubst (k : Preskel) (phi : List Sid) (subst : Subst)
     | some ns' => (ns.map (permuteNode phi)).all (ns'.contains))
 
 /-- Filter a PRS to only those that define a valid homomorphism.
+    This is the universal EXIT GATE of both the hull pipeline (`toSkeleton`) and
+    the cohort primitives (`augment`/`contract`/`addListener`/`addAbsence`), and
+    is never called on hull intermediates.  We attach the expensive TC fields
+    (`addExpensiveFields`) here so every surviving output has TC for its
+    downstream consumers (`povCheck`, `mgs`, `specialization`, rule predicates)
+    while intermediates — which only pass through `wellFormedPreskel` — stay
+    TC-free.  `addExpensiveFields` is idempotent, so this never double-computes.
     Mirrors `homomorphismFilter :: PRS -> [Ans]`. -/
 def homomorphismFilter (prs : PRS) : List Ans :=
-  let (k0, k, _, phi, subst) := prs
-  if validateMappingSubst k0 phi subst k then [ans prs] else []
+  let (k0, k, n, phi, subst) := prs
+  if validateMappingSubst k0 phi subst k then [(addExpensiveFields k, n, phi, subst)] else []
 
 -- ── toSkeleton ────────────────────────────────────────────────────────────────
 
 /-- Convert a preskeleton to a list of skeletons.
+    TC fields are attached by the exit gate `homomorphismFilter`, so each
+    surviving skeleton already carries TC for downstream callers (e.g.
+    `specialization`).  The hull intermediates deliberately stay TC-free.
     Mirrors `toSkeleton :: Bool -> Preskel -> [Preskel]`. -/
 def toSkeleton (thin : Bool) (k : Preskel) : List Preskel :=
   (hull thin (k, k, (0, 0), k.strandids, emptySubst)).flatMap fun prs =>
@@ -2293,9 +2324,11 @@ private partial def sameContractedEvent (k : Preskel) (n n' : Node) : Bool :=
       | .gt => validSubSeg (nodeIsStor k n') i' i))
 
 /-- Build a weaker preskel by removing pair `p` from `orderings`.
+    Uses `newPreskelBasic`: TC is deferred to `addExpensiveFields` in
+    `Cohort.maximize` (before `simplify`) so rejected candidates don't pay it.
     Mirrors `weaken :: Preskel -> Pair -> [Pair] -> Candidate`. -/
 private def weaken (k : Preskel) (p : Pair) (orderings : List Pair) : Candidate :=
-  let k' := newPreskel k.gen k.shared k.insts orderings
+  let k' := newPreskelBasic k.gen k.shared k.insts orderings
               k.knon k.kpnon k.kunique k.kuniqgen k.kabsent k.kprecur
               k.kgenSt k.kconf k.kauth k.kfacts k.kpriority
               (.Generalized k.strandids (.Weakened p)) [] k.pprob k.prob k.pov
@@ -2337,10 +2370,11 @@ private def skelUniqgens (k : Preskel) : List Term :=
   k.kuniqgen.filter fun t => !ru.contains t
 
 /-- Drop each non-inherited non-orig assumption in turn.
+    Uses `renewPreskelBasic`: TC deferred to `Cohort.maximize`.
     Mirrors `forgetNonTerm :: Preskel -> [Candidate]`. -/
 private def forgetNonTerm (k : Preskel) : List Candidate :=
   (skelNons k).map fun t =>
-    addIdentity (renewPreskel { k with
+    addIdentity (renewPreskelBasic { k with
       knon      := k.knon.erase t,
       operation := .Generalized [] (.Forgot t),
       krules    := [] })
@@ -2348,7 +2382,7 @@ private def forgetNonTerm (k : Preskel) : List Candidate :=
 /-- Drop each non-inherited pnon assumption in turn. -/
 private def forgetPnonTerm (k : Preskel) : List Candidate :=
   (skelPnons k).map fun t =>
-    addIdentity (renewPreskel { k with
+    addIdentity (renewPreskelBasic { k with
       kpnon     := k.kpnon.erase t,
       operation := .Generalized [] (.Forgot t),
       krules    := [] })
@@ -2356,7 +2390,7 @@ private def forgetPnonTerm (k : Preskel) : List Candidate :=
 /-- Drop each non-inherited unique assumption in turn. -/
 private def forgetUniqueTerm (k : Preskel) : List Candidate :=
   (skelUniques k).map fun t =>
-    addIdentity (renewPreskel { k with
+    addIdentity (renewPreskelBasic { k with
       kunique   := k.kunique.erase t,
       operation := .Generalized [] (.Forgot t),
       krules    := [] })
@@ -2470,8 +2504,11 @@ private def changeLocations (k : Preskel) (env : Env) (gen : Gen)
   let uniqgen0 := k.kuniqgen ++ uniqgen'
   let uniqgen1 := k.kuniqgen.map (instantiate env) ++ uniqgen'
   let facts    := k.kfacts.map (instFact env)
+  -- Use newPreskelBasic: TC is deferred to addExpensiveFields in Cohort.maximize
+  -- (before simplify) so candidates never pay TC for preskels rejected by
+  -- preskelWellFormed or simplify.
   let mk unique uniqgen kfacts :=
-    newPreskel gen' k.shared insts' k.orderings non pnon
+    newPreskelBasic gen' k.shared insts' k.orderings non pnon
       unique uniqgen k.kabsent k.kprecur k.kgenSt k.kconf k.kauth kfacts
       k.kpriority (.Generalized k.strandids (.Separated t))
       [] k.pprob k.prob k.pov
@@ -2522,6 +2559,11 @@ def generalize (k : Preskel) : List Candidate :=
 -- ── collapse ──────────────────────────────────────────────────────────────────
 
 /-- Try to collapse strands `s` and `s'` into one.
+    Like `homomorphismFilter`, this is a pipeline EXIT GATE: it consumes the
+    `skeletonize` output directly (rather than via `homomorphismFilter`), so it
+    must attach the expensive TC fields here.  Otherwise collapsed skeletons —
+    which flow into the search state and are displayed by `maps` (needs `tc`) —
+    would be left TC-free now that `wellFormedPreskel` defers TC.
     Mirrors `collapseStrands :: Preskel -> Sid -> Sid -> [Preskel]`. -/
 def collapseStrands (k : Preskel) (s s' : Sid) : List Preskel :=
   (unifyStrands k s s').flatMap fun (su, su', subst) =>
@@ -2530,7 +2572,7 @@ def collapseStrands (k : Preskel) (s s' : Sid) : List Preskel :=
     (ksubst prs subst).flatMap fun prs =>
     (compress true prs su su').flatMap fun prs =>
     (skeletonize useThinningDuringCollapsing prs).map fun prs =>
-      updateStrandMap (let (_, _, _, sm, _) := prs; sm) (skel prs)
+      updateStrandMap (let (_, _, _, sm, _) := prs; sm) (addExpensiveFields (skel prs))
 
 /-- All strand-collapse candidates.
     Mirrors `collapse :: Preskel -> [Preskel]`. -/
