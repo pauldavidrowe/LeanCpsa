@@ -1889,6 +1889,13 @@ def validateMappingSubst (k : Preskel) (phi : List Sid) (subst : Subst)
     | none     => false
     | some ns' => (ns.map (permuteNode phi)).all (ns'.contains))
 
+/-- Filter a PRS to only those that define a valid homomorphism, WITHOUT
+    attaching the expensive TC fields.  Used directly by `toSkeletonNoTC`
+    (the specialization path) and as the basis for `homomorphismFilter`. -/
+def homomorphismFilterNoTC (prs : PRS) : List Ans :=
+  let (k0, k, n, phi, subst) := prs
+  if validateMappingSubst k0 phi subst k then [(k, n, phi, subst)] else []
+
 /-- Filter a PRS to only those that define a valid homomorphism.
     This is the universal EXIT GATE of both the hull pipeline (`toSkeleton`) and
     the cohort primitives (`augment`/`contract`/`addListener`/`addAbsence`), and
@@ -1899,8 +1906,8 @@ def validateMappingSubst (k : Preskel) (phi : List Sid) (subst : Subst)
     TC-free.  `addExpensiveFields` is idempotent, so this never double-computes.
     Mirrors `homomorphismFilter :: PRS -> [Ans]`. -/
 def homomorphismFilter (prs : PRS) : List Ans :=
-  let (k0, k, n, phi, subst) := prs
-  if validateMappingSubst k0 phi subst k then [(addExpensiveFields k, n, phi, subst)] else []
+  (homomorphismFilterNoTC prs).map fun (k, n, phi, subst) =>
+    (addExpensiveFields k, n, phi, subst)
 
 -- ── toSkeleton ────────────────────────────────────────────────────────────────
 
@@ -1912,6 +1919,17 @@ def homomorphismFilter (prs : PRS) : List Ans :=
 def toSkeleton (thin : Bool) (k : Preskel) : List Preskel :=
   (hull thin (k, k, (0, 0), k.strandids, emptySubst)).flatMap fun prs =>
     (homomorphismFilter prs).map fun (k', _, _, _) => k'
+
+/-- `toSkeleton` variant that does NOT attach the expensive TC fields to its
+    outputs.  Only for consumers that gate the need for TC behind cheaper,
+    TC-free checks — currently `Cohort.specialization`, which rejects most
+    candidates via `unrealized`/`isomorphic` (both TC-free) before any TC is
+    read, and calls `addExpensiveFields` itself on the survivors.  This avoids
+    paying the closure cost for the many generalization candidates that fail
+    those cheap checks. -/
+def toSkeletonNoTC (thin : Bool) (k : Preskel) : List Preskel :=
+  (hull thin (k, k, (0, 0), k.strandids, emptySubst)).flatMap fun prs =>
+    (homomorphismFilterNoTC prs).map fun (k', _, _, _) => k'
 
 -- ── firstSkeleton ─────────────────────────────────────────────────────────────
 

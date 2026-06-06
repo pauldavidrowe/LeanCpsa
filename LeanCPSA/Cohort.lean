@@ -619,15 +619,19 @@ def filterSame (k : Preskel) (ks : List Preskel) : List Preskel :=
 def specialization (k k' : Preskel) (mapping : List Sid) : List Preskel :=
   if !preskelWellFormed k' then []
   else
-    (toSkeleton useThinningDuringGeneralization k').flatMap fun k'' =>
-      let realized : Bool := (unrealized k'').isEmpty
-      let refines  : Preskel → Option Preskel → List Sid → Bool
-        | _,  none,    _   => assertError "Cohort.specialization: cannot find point of view"
-        | k0, some k0', mp => !(homomorphism k0' k0 mp).isEmpty
-      if realized && !isomorphic (gist k) (gist k'') &&
-         refines k'' k''.pov k''.prob &&
-         refines k (some k'') mapping
-      then [k'']
+    -- Use `toSkeletonNoTC`: the skeletons arrive WITHOUT transitive closure.
+    -- `unrealized` and `isomorphic` are TC-free, so most candidates are rejected
+    -- here without ever paying `addExpensiveFields`.  Only survivors get TC,
+    -- which the `refines` homomorphism checks (and downstream search) require.
+    (toSkeletonNoTC useThinningDuringGeneralization k').flatMap fun k''0 =>
+      if (unrealized k''0).isEmpty && !isomorphic (gist k) (gist k''0) then
+        let k'' := addExpensiveFields k''0
+        let refines  : Preskel → Option Preskel → List Sid → Bool
+          | _,  none,    _   => assertError "Cohort.specialization: cannot find point of view"
+          | k0, some k0', mp => !(homomorphism k0' k0 mp).isEmpty
+        if refines k'' k''.pov k''.prob && refines k (some k'') mapping
+        then [k'']
+        else []
       else []
 
 /-- Maximize: find generalization(s) of a realized skeleton.
