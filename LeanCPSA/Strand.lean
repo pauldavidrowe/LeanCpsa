@@ -446,11 +446,13 @@ private def graphReduce (getNode : Node → Option GraphNode) (orderings : List 
 -- ── graphClose ────────────────────────────────────────────────────────────────
 
 /-- Compute the transitive closure of edges, omitting same-strand pairs.
-    Uses a fixed-point iteration rather than Haskell's knot-tying mutual recursion.
-    For large edge sets (> `tcSetThreshold`) membership is tracked in an
-    `RBSet Pair` keyed by node identity (`graphPair`, matching `BEq GraphEdge`)
-    so the duplicate check is O(log n); for small edge sets a plain
-    `List.contains` is faster (no tree-construction overhead).
+    For large edge sets (> `tcSetThreshold`) a semi-naive closure is used: each
+    round extends only the edges discovered in the previous round (the frontier)
+    rather than re-scanning the whole edge set, with `RBSet Pair` membership
+    (keyed by node identity `graphPair`, matching `BEq GraphEdge`).  This turns
+    the naive O(rounds × |edges|) fixpoint into O(|closure| × avg-preds), which
+    matters on deep graphs (e.g. bound-8 protocols like mass.lsp).  Small edge
+    sets keep the plain list fixpoint (lower constant overhead, no tree build).
     Mirrors `graphClose :: [GraphEdge e i] -> [GraphEdge e i]`. -/
 private partial def graphClose
     (getNode : Node → Option GraphNode) (orderings : List GraphEdge)
@@ -474,22 +476,26 @@ private partial def graphClose
         if changed then fixL ords' else ords
       fixL orderings
     else
-      -- Set-based membership (O(log n)) for large graphs.
-      let step (ords : List GraphEdge) (seen : RBSet Pair)
-          : Bool × List GraphEdge × RBSet Pair :=
-        ords.foldl (fun (changed, acc, seen) (n0, n1) =>
-          let newEdges := n0.preds.filterMap (fun predNode =>
-            getNode predNode |>.map (fun n => (n, n1)))
-          newEdges.foldl (fun (ch, acc, seen) p =>
-            let key := graphPair p
-            if seen.member key then (ch, acc, seen)
-            else (true, p :: acc, RBSet.insert key seen))
-            (changed, acc, seen))
-          (false, ords, seen)
-      let rec fixS (ords : List GraphEdge) (seen : RBSet Pair) : List GraphEdge :=
-        let (changed, ords', seen') := step ords seen
-        if changed then fixS ords' seen' else ords
-      fixS orderings (RBSet.fromList (orderings.map graphPair))
+      -- Semi-naive set-based closure: extend only the previous round's frontier.
+      -- `expand` takes one edge (n0,n1) to {(n,n1) | n ∈ preds(n0)}, keeping only
+      -- those not already seen; those become the next frontier and join `acc`.
+      let expand (frontier acc : List GraphEdge) (seen : RBSet Pair)
+          : List GraphEdge × List GraphEdge × RBSet Pair :=
+        frontier.foldl (fun (newF, acc, seen) (n0, n1) =>
+          (n0.preds.filterMap (fun predNode =>
+              getNode predNode |>.map (fun n => (n, n1)))).foldl
+            (fun (newF, acc, seen) p =>
+              let key := graphPair p
+              if seen.member key then (newF, acc, seen)
+              else (p :: newF, p :: acc, RBSet.insert key seen))
+            (newF, acc, seen))
+          ([], acc, seen)
+      let rec loop (frontier acc : List GraphEdge) (seen : RBSet Pair) : List GraphEdge :=
+        match frontier with
+        | [] => acc
+        | _  => let (newF, acc', seen') := expand frontier acc seen
+                loop newF acc' seen'
+      loop orderings orderings (RBSet.fromList (orderings.map graphPair))
   closed.filter (not ∘ sameStrands)
 
 -- ── nodeGraphCloseAll ─────────────────────────────────────────────────────────
@@ -2573,13 +2579,28 @@ private def changeStrands (locs : List Location) (copy : Term)
     (gen : Gen) (strs : List KStrand) : Gen × List Instance :=
   changeStrandsGo locs copy gen strs []
 
-/-- Generate all non-empty subsets of `{0..n-1}` (as index lists).
-    Mirrors `subsets :: Int -> [[Int]]`. -/
-private partial def subsets (n : Int) : List (List Int) :=
-  if n <= 0 then []
+/-- The first `limit` non-empty subsets of `{0..n-1}` (as index lists), in the
+    same order as the full enumeration `subsets n = [n-1] :: (subsets (n-1) ++
+    subsets (n-1).map ((n-1) :: ·))`, but WITHOUT ever materializing the full
+    2^n list.  Equivalent to `(subsets n).take limit`.
+
+    The previous strict `subsets` built all 2^n subsets before the caller's
+    `.take` could trim them, so a variable occurring in many locations (e.g. the
+    larger terms in wide-mouth-frog-scyther) blew memory up to ~1 GB.  Bounding
+    the generation keeps it at O(n · limit): for large `n` only the left spine
+    is taken (the `.map` branch is never reached), and the branch that recurses
+    twice only fires once `2^(n-1) < limit`, where the subsets are tiny. -/
+private partial def subsetsBounded (n : Int) (limit : Nat) : List (List Int) :=
+  if n <= 0 || limit == 0 then []
   else
-    let sub := subsets (n - 1)
-    [n - 1] :: (sub ++ sub.map ((n - 1) :: ·))
+    let head : List Int := [n - 1]
+    let rest := subsetsBounded (n - 1) (limit - 1)
+    let used := 1 + rest.length
+    if used >= limit then
+      (head :: rest).take limit
+    else
+      let more := (subsetsBounded (n - 1) (limit - used)).map (fun s => (n - 1) :: s)
+      head :: (rest ++ more)
 
 /-- Build the two candidate preskels from a set of changed locations.
     Mirrors `changeLocations :: Preskel -> Env -> Gen -> Term -> [Location] -> [Candidate]`. -/
@@ -2617,13 +2638,12 @@ private def separateVariable (k : Preskel) (ps : List (Term × Location))
     else
       let (gen', t') := clone k.gen t
       let ge := matchAlways t t' (gen', emptyEnv)
-      -- In Haskell, the outer `take separateVariablesLimit` on `separateVariables`
-      -- is lazy and stops evaluation after 1024 candidates total.  In Lean, `flatMap`
-      -- is strict, so without an early truncation we would evaluate all 2^n subsets
-      -- before `take` ever runs.  Cap at `separateVariablesLimit` subsets here so
-      -- each variable contributes at most 2×separateVariablesLimit candidates; the
-      -- outer take in `generalize` then limits the grand total to separateVariablesLimit.
-      let parts := ((subsets (Int.ofNat locs.length)).take separateVariablesLimit).map
+      -- `subsetsBounded` yields at most `separateVariablesLimit` subsets without
+      -- materializing all 2^n (Lean is strict, so a plain `(subsets n).take k`
+      -- would build the whole 2^n list first — a memory blowup when a variable
+      -- occurs in many locations).  Each variable thus contributes at most
+      -- 2×separateVariablesLimit candidates.
+      let parts := (subsetsBounded (Int.ofNat locs.length) separateVariablesLimit).map
         (fun idxs => idxs.filterMap (fun i => locs.get? i.toNat))
       parts.flatMap fun locs' => changeLocations k ge.2 ge.1 t' locs'
 
