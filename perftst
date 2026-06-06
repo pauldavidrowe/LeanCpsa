@@ -3,9 +3,10 @@ from __future__ import annotations
 """
 perftst — Compare performance of cpsa4 (Haskell) vs leancpsa (Lean).
 
-For each .scm file in the target directory that has a matching .tst reference,
+For each input file in the target directory that has a matching .tst reference,
 both tools are run and their wall-clock time and peak RSS are recorded.
-cpsa4diff is used to verify correctness of both outputs.
+.scm files are benchmarked first, then any .lsp files (each likewise requiring a
+corresponding .tst).  cpsa4diff is used to verify correctness of both outputs.
 
 Usage:
   ./perftst [--dir DIR] [--repeat N] [--sort {ratio|lean|hs|name}]
@@ -289,7 +290,7 @@ def main() -> None:
         epilog=__doc__,
     )
     ap.add_argument("--dir",    default=str(DEFAULT_TST_DIR),
-                    metavar="DIR",   help="Directory containing .scm and .tst files")
+                    metavar="DIR",   help="Directory containing .scm/.lsp and .tst files")
     ap.add_argument("--repeat", default=1, type=int,
                     metavar="N",     help="Runs per file; best wall time is reported")
     ap.add_argument("--sort",   default="ratio",
@@ -310,19 +311,26 @@ def main() -> None:
             sys.exit(1)
 
     tst_dir = Path(args.dir)
-    all_scm = sorted(p for p in tst_dir.glob("*.scm")
-                     if (tst_dir / (p.stem + ".tst")).exists())
+
+    def pairs_for(ext: str) -> list[Path]:
+        """Input files with the given extension that have a matching .tst."""
+        return sorted(p for p in tst_dir.glob(f"*{ext}")
+                      if (tst_dir / (p.stem + ".tst")).exists())
+
+    # Run .scm comparisons first, then any .lsp comparisons.
+    all_inputs = pairs_for(".scm") + pairs_for(".lsp")
     if args.files:
         # Resolve each supplied name to a path in tst_dir (accept bare stem or full name)
         wanted = {Path(f).stem for f in args.files}
-        scm_files = [p for p in all_scm if p.stem in wanted]
-        missing = wanted - {p.stem for p in scm_files}
+        test_files = [p for p in all_inputs if p.stem in wanted]
+        missing = wanted - {p.stem for p in test_files}
         if missing:
-            print(f"Warning: no .scm/.tst pair found for: {', '.join(sorted(missing))}", file=sys.stderr)
+            print(f"Warning: no .scm/.lsp file with matching .tst found for: "
+                  f"{', '.join(sorted(missing))}", file=sys.stderr)
     else:
-        scm_files = all_scm
-    if not scm_files:
-        print(f"No .scm files with matching .tst found in {tst_dir}", file=sys.stderr)
+        test_files = all_inputs
+    if not test_files:
+        print(f"No .scm or .lsp files with matching .tst found in {tst_dir}", file=sys.stderr)
         sys.exit(1)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -333,7 +341,7 @@ def main() -> None:
     hdr = (f"{'file':<34}  {'hs-par':>8}  {'hs-N1':>8}  {'lean':>8}  "
            f"{'÷N1':>6}  {'÷par':>6}  status")
     sep = "─" * len(hdr)
-    n_files = len(scm_files)
+    n_files = len(test_files)
     dir_note = str(tst_dir).replace(str(Path.home()), "~")
     print(f"\nRunning {n_files} tests from {dir_note}")
     if args.repeat > 1:
@@ -345,12 +353,12 @@ def main() -> None:
     sys.stdout.flush()
 
     rows: list[dict] = []
-    for i, scm in enumerate(scm_files, 1):
-        tst = tst_dir / (scm.stem + ".tst")
-        row = bench_file(scm, tst, repeat=args.repeat)
+    for i, inp in enumerate(test_files, 1):
+        tst = tst_dir / (inp.stem + ".tst")
+        row = bench_file(inp, tst, repeat=args.repeat)
         rows.append(row)
 
-        print(f"  {scm.name:<32}  {_fmt_ms(row['hs_par_ms']):>8}  "
+        print(f"  {inp.name:<32}  {_fmt_ms(row['hs_par_ms']):>8}  "
               f"{_fmt_ms(row['hs_n1_ms']):>8}  {_fmt_ms(row['lean_ms']):>8}  "
               f"{_fmt_ratio(row.get('ratio_n1')):>6}  "
               f"{_fmt_ratio(row.get('ratio_par')):>6}  "
