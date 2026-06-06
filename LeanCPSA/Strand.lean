@@ -72,6 +72,15 @@ def generalizeDeleteOnlyListeners : Bool := false
 -- Maximum number of variable-separation candidates to consider.
 def separateVariablesLimit : Nat := 1024
 
+-- Transitive-closure (graphClose / nodeGraphCloseAll) edge-count cutoff above
+-- which the set-based (RBSet/RBMap, O(log n)) membership path is used instead of
+-- the list-based (O(n) `List.contains`) path.  Small graphs are faster with the
+-- list path (lower constant overhead — no tree construction); large graphs are
+-- faster with the set path.  Tuned so the many small per-call closures (e.g.
+-- wonthull2, dh-ca_hack) stay on the list path while the large closures
+-- (envelope, chan-envelope, locn_envelope) use the set path.
+def tcSetThreshold : Nat := 24
+
 -- ── Instance ──────────────────────────────────────────────────────────────────
 
 /-- An instance of a role: a role with variables replaced by concrete terms.
@@ -438,46 +447,110 @@ private def graphReduce (getNode : Node → Option GraphNode) (orderings : List 
 
 /-- Compute the transitive closure of edges, omitting same-strand pairs.
     Uses a fixed-point iteration rather than Haskell's knot-tying mutual recursion.
+    For large edge sets (> `tcSetThreshold`) membership is tracked in an
+    `RBSet Pair` keyed by node identity (`graphPair`, matching `BEq GraphEdge`)
+    so the duplicate check is O(log n); for small edge sets a plain
+    `List.contains` is faster (no tree-construction overhead).
     Mirrors `graphClose :: [GraphEdge e i] -> [GraphEdge e i]`. -/
 private partial def graphClose
     (getNode : Node → Option GraphNode) (orderings : List GraphEdge)
     : List GraphEdge :=
   let sameStrands (e : GraphEdge) := e.1.strandId == e.2.strandId
-  let step (ords : List GraphEdge) : Bool × List GraphEdge :=
-    ords.foldl (fun (changed, acc) (n0, n1) =>
-      let newEdges := n0.preds.filterMap (fun predNode =>
-        getNode predNode |>.map (fun n => (n, n1)))
-      newEdges.foldl (fun (ch, acc) p =>
-        if acc.contains p then (ch, acc) else (true, p :: acc))
-        (changed, acc))
-      (false, ords)
-  let rec fixpoint (ords : List GraphEdge) : List GraphEdge :=
-    let (changed, ords') := step ords
-    if changed then fixpoint ords' else ords
-  (fixpoint orderings).filter (not ∘ sameStrands)
+  let closed :=
+    if orderings.length ≤ tcSetThreshold then
+      -- List-based membership (low constant overhead) for small graphs.
+      -- PDR: Consider eliminating this branch for simplicity. The cost
+      -- is potentially more expensive closures for small graphs.
+      let step (ords : List GraphEdge) : Bool × List GraphEdge :=
+        ords.foldl (fun (changed, acc) (n0, n1) =>
+          let newEdges := n0.preds.filterMap (fun predNode =>
+            getNode predNode |>.map (fun n => (n, n1)))
+          newEdges.foldl (fun (ch, acc) p =>
+            if acc.contains p then (ch, acc) else (true, p :: acc))
+            (changed, acc))
+          (false, ords)
+      let rec fixL (ords : List GraphEdge) : List GraphEdge :=
+        let (changed, ords') := step ords
+        if changed then fixL ords' else ords
+      fixL orderings
+    else
+      -- Set-based membership (O(log n)) for large graphs.
+      let step (ords : List GraphEdge) (seen : RBSet Pair)
+          : Bool × List GraphEdge × RBSet Pair :=
+        ords.foldl (fun (changed, acc, seen) (n0, n1) =>
+          let newEdges := n0.preds.filterMap (fun predNode =>
+            getNode predNode |>.map (fun n => (n, n1)))
+          newEdges.foldl (fun (ch, acc, seen) p =>
+            let key := graphPair p
+            if seen.member key then (ch, acc, seen)
+            else (true, p :: acc, RBSet.insert key seen))
+            (changed, acc, seen))
+          (false, ords, seen)
+      let rec fixS (ords : List GraphEdge) (seen : RBSet Pair) : List GraphEdge :=
+        let (changed, ords', seen') := step ords seen
+        if changed then fixS ords' seen' else ords
+      fixS orderings (RBSet.fromList (orderings.map graphPair))
+  closed.filter (not ∘ sameStrands)
 
 -- ── nodeGraphCloseAll ─────────────────────────────────────────────────────────
 
+/-- Direct-predecessor map built once from the original orderings:
+    `predMap[n] = {a | (a, n) ∈ orderings}`.  Replaces the per-worklist-item
+    `orderings.filterMap` scan with an O(log n) lookup. -/
+private def nodePredMap (orderings : List Pair) : LeanCPSA.Lib.RBMap Node (List Node) :=
+  orderings.foldl
+    (fun m (a, b) =>
+      LeanCPSA.Lib.RBMap.alter (fun o => some (a :: o.getD [])) b m)
+    LeanCPSA.Lib.RBMap.empty
+
 /-- Compute the full transitive closure of node-pair orderings (including
-    same-strand pairs).  Mirrors `nodeGraphCloseAll :: [Pair] -> [Pair]`. -/
+    same-strand pairs).  Direct predecessors come from a precomputed `predMap`,
+    and membership is tracked in an `RBSet Pair` so the duplicate check is
+    O(log n) rather than an O(n) `List.contains` scan.
+    Mirrors `nodeGraphCloseAll :: [Pair] -> [Pair]`. -/
 private partial def nodeGraphCloseAll_loop
+    (predMap : LeanCPSA.Lib.RBMap Node (List Node))
+    : List Pair → RBSet Pair → Bool → List Pair → List Pair
+  | ords, _,    false, [] => ords
+  | ords, seen, true,  [] => nodeGraphCloseAll_loop predMap ords seen false ords
+  | ords, seen, rpt, (n0, n1) :: pairs =>
+    let direct := LeanCPSA.Lib.RBMap.findWithDefault [] n0 predMap
+    let myPreds := if n0.2 == 0 then direct else adjoin (n0.1, n0.2 - 1) direct
+    let rec inner (ords : List Pair) (seen : RBSet Pair) (rpt : Bool)
+        : List Node → List Pair
+      | [] => nodeGraphCloseAll_loop predMap ords seen rpt pairs
+      | n :: rest =>
+        if seen.member (n, n1) then inner ords seen rpt rest
+        else inner ((n, n1) :: ords) (RBSet.insert (n, n1) seen) true rest
+    inner ords seen rpt myPreds
+
+/-- List-based variant of `nodeGraphCloseAll_loop` for small graphs: direct
+    predecessors via an `orderings.filterMap` scan and membership via
+    `List.contains`.  Lower constant overhead than the set/map path. -/
+private partial def nodeGraphCloseAll_listLoop
     (initOrd : List Pair) : List Pair → Bool → List Pair → List Pair
   | ords, false, [] => ords
-  | ords, true,  [] => nodeGraphCloseAll_loop initOrd ords false ords
+  | ords, true,  [] => nodeGraphCloseAll_listLoop initOrd ords false ords
   | ords, rpt, (n0, n1) :: pairs =>
     let direct := initOrd.filterMap (fun (a, b) => if b == n0 then some a else none)
     let myPreds := if n0.2 == 0 then direct else adjoin (n0.1, n0.2 - 1) direct
     let rec inner (ords : List Pair) (rpt : Bool) : List Node → List Pair
-      | [] => nodeGraphCloseAll_loop initOrd ords rpt pairs
+      | [] => nodeGraphCloseAll_listLoop initOrd ords rpt pairs
       | n :: rest =>
         if ords.contains (n, n1) then inner ords rpt rest
         else inner ((n, n1) :: ords) true rest
     inner ords rpt myPreds
 
 /-- Compute the full transitive closure of node-pair orderings.
+    Large graphs (> `tcSetThreshold`) use the precomputed predecessor map and
+    set-based membership; small graphs use the lower-overhead list path.
     Mirrors `nodeGraphCloseAll :: [Pair] -> [Pair]`. -/
 def nodeGraphCloseAll (orderings : List Pair) : List Pair :=
-  nodeGraphCloseAll_loop orderings orderings false orderings
+  if orderings.length ≤ tcSetThreshold then
+    nodeGraphCloseAll_listLoop orderings orderings false orderings
+  else
+    nodeGraphCloseAll_loop (nodePredMap orderings)
+      orderings (RBSet.fromList orderings) false orderings
 
 -- ── Shared ────────────────────────────────────────────────────────────────────
 
