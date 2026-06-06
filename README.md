@@ -35,6 +35,8 @@ LeanCPSA/
     └── Strand.lean         # Core functionality
 ├── lake-manifest.json      # Package maintenance
 ├── Main.lean               # Main entry point
+├── perftst                 # Performance and regression testing
+├── profrun                 # Profiling tool
 └── README.md               # This README file
 ```
 
@@ -43,6 +45,8 @@ LeanCPSA/
 ```sh
 lake build
 ```
+
+Resulting executable will be found at `.lake/build/bin/leancpsa`.
 
 (Requires [`elan`](https://github.com/leanprover/elan); the toolchain pinned in
 `lean-toolchain` will be installed automatically on first build.)
@@ -56,6 +60,5 @@ Each new module lives under `LeanCPSA/` and must be re-exported from
 ## TODO
 
 - Consider porting secondary executables as well
-- Replicate test suite and testing infrastructure
 - Reduce the number of partial functions by proving termination
 - Identify other properties of code to prove
