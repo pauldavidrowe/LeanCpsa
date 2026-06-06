@@ -631,25 +631,58 @@ def specialization (k k' : Preskel) (mapping : List Sid) : List Preskel :=
       else []
 
 /-- Maximize: find generalization(s) of a realized skeleton.
+
+    Mirrors Haskell's lazy `maximize`: candidates are generated and simplified
+    on demand, and we stop at the FIRST candidate that specializes.  Haskell
+    achieves this through lazy evaluation of
+    `iter (concatMap simplify (map recordMap (generalize k)))`; Lean lists are
+    strict, so we instead consume `generalizeGroups` — lazily-forced candidate
+    groups — short-circuiting as soon as a group yields a specialization.  This
+    avoids building the entire (often variable-separation-dominated) candidate
+    space when an earlier candidate already succeeds.
+
+    Per candidate we add TC before `simplify` (idempotent) so the rule
+    predicates (`rprec`/`gprec`/`urprec`) can read `kgpOrds`/`kgpOrdsAll`/`tc`,
+    and the early `preskelWellFormed` filter avoids paying TC/`simplify` for
+    candidates that cannot be well-formed.
     Mirrors `maximize :: Preskel -> [Preskel]`. -/
 def maximize (k : Preskel) : List Preskel :=
-  -- Candidates from `generalize` use `newPreskelBasic` (no TC).
-  -- We add TC before `simplify` so that rule predicates (`rprec`, `gprec`,
-  -- `urprec`) can access `kgpOrds`/`kgpOrdsAll`/`tc`.
-  -- `addExpensiveFields` is idempotent (no-op if `tcComputed` is already true),
-  -- so protocols without rules pay nothing here.
-  -- Early `preskelWellFormed` filter avoids paying TC for rejected candidates.
-  let candidates := (generalize k).flatMap fun (k', sm) =>
-    if !preskelWellFormed k' then []
-    else simplify (addExpensiveFields (updateStrandMap sm k'))
-  let rec iter : List Preskel → List Preskel
-    | []         => []
-    | k' :: rest =>
-      let mapping := getStrandMap k'.operation
-      match specialization k k' mapping with
-      | []  => iter rest
+  -- Test one simplified preskel; first non-empty specialization wins.
+  let rec testSimps : List Preskel → List Preskel
+    | []        => []
+    | s :: rest =>
+      match specialization k s (getStrandMap s.operation) with
+      | []  => testSimps rest
       | ks  => ks
-  iter candidates
+  -- Process a batch of candidates in order, stopping at the first success.
+  let rec testCands : List Candidate → List Preskel
+    | []              => []
+    | (k', sm) :: rest =>
+      if !preskelWellFormed k' then testCands rest
+      else
+        match testSimps (simplify (addExpensiveFields (updateStrandMap sm k'))) with
+        | []  => testCands rest
+        | ks  => ks
+  -- Force base groups (delete/forget/weaken) one at a time, short-circuiting.
+  let rec iterBase : List (Unit → List Candidate) → List Preskel
+    | []      => []
+    | g :: gs => match testCands (g ()) with
+                 | []  => iterBase gs
+                 | ks  => ks
+  -- Force separation groups, applying the global `separateVariablesLimit`
+  -- budget across them (matching `take separateVariablesLimit separateVariables`).
+  let rec iterSep : Nat → List (Unit → List Candidate) → List Preskel
+    | _,      []      => []
+    | 0,      _       => []
+    | budget, g :: gs =>
+      let cands := (g ()).take budget
+      match testCands cands with
+      | []  => iterSep (budget - cands.length) gs
+      | ks  => ks
+  let (base, sep) := generalizeGroups k
+  match iterBase base with
+  | []  => iterSep separateVariablesLimit sep
+  | ks  => ks
 
 /-- Try to generalize, or return `Stable` if no generalization applies.
     Mirrors `reduceNoTest`. -/

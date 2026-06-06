@@ -2556,6 +2556,38 @@ def generalize (k : Preskel) : List Candidate :=
       (separateVariables k').take separateVariablesLimit
     else []
 
+/-- Generalization candidates as lazily-forced groups, in the same order as
+    `generalize`, so that `Cohort.maximize` can stop before later groups are
+    built.  This mirrors Haskell, where `generalize` is a lazy list consumed by
+    a short-circuiting `iter` that stops at the first candidate that specializes.
+
+    Returns `(base, sep)`:
+    * `base` — the delete/forget/weaken groups (no global cap).
+    * `sep`  — one separation group per skeleton variable, in `kvars` order.
+      The consumer applies the global `separateVariablesLimit` budget across
+      these (matching `take separateVariablesLimit (separateVariables k')`).
+
+    Construction of each group's candidates (`changeLocations`/`newPreskelBasic`)
+    is deferred to when the thunk is forced, so a protocol whose generalization
+    is dominated by variable separation (e.g. wonthull2) no longer pays to build
+    the whole separation space when an earlier candidate already succeeds. -/
+def generalizeGroups (k : Preskel)
+    : List (Unit → List Candidate) × List (Unit → List Candidate) :=
+  let k' := withCoreFacts k
+  if generalizeOnlyByDeletion then
+    ([fun _ => deleteNodes k'], [])
+  else
+    let base : List (Unit → List Candidate) :=
+      [ fun _ => deleteNodes k',
+        fun _ => forgetAssumption k',
+        fun _ => weakenOrderings k' ]
+    if useVariableSeparation then
+      let ps := extractPlaces k'
+      let sep := (kvars k').map (fun v => (fun (_ : Unit) => separateVariable k' ps v))
+      (base, sep)
+    else
+      (base, [])
+
 -- ── collapse ──────────────────────────────────────────────────────────────────
 
 /-- Try to collapse strands `s` and `s'` into one.
